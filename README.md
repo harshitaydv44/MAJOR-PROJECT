@@ -39,20 +39,6 @@ A unified, production-grade civic technology ecosystem bridging grassroots commu
 
 ---
 
-## 2. 6 Core Stakeholder Roles & Pre-Seeded Credentials
-
-All accounts come pre-configured with active status and password: **`Password123`**
-
-| Role | Email | Name / Designation | Portal Route | Primary Capabilities |
-|---|---|---|---|---|
-| **`CLIENT`** | `citizen@delhi.gov.in` | Sunita Sharma (RWA President) | `/client` | Report civic challenges with geo-coordinates, upload photos/documents, monitor resolution progress, view public verified projects. |
-| **`ADMIN`** | `admin@delhi.gov.in` | Dr. Vivek Saxena (IAS, Nodal Director) | `/admin` | Screen validation queue, approve/reject challenges, trigger AI matching, assign universities, monitor GIS district map, query live MongoDB analytics. |
-| **`UNIVERSITY`** | `university@dtu.ac.in` | Delhi Technological University (DTU) | `/university` | Explore Challenge Marketplace, adopt validated problems, create innovation projects, manage multidisciplinary student cohorts, register verified societal impact. |
-| **`FACULTY`** | `faculty@dtu.ac.in` | Prof. S. K. Singh (Environmental Eng.) | `/faculty` | Supervise assigned innovation teams, provide academic mentorship, review lab milestones, validate technical solution proposals. |
-| **`STUDENT`** | `student@nsut.ac.in` | Rohan Verma (Lead Mechatronics Fellow) | `/student` | Build hardware/software prototypes, update milestone progress, submit field deliverables, collaborate in multidisciplinary teams. |
-| **`INDUSTRY`** | `industry@tatapower.com` | Tata Power Delhi Innovation Hub | `/industry` | Discover university research opportunities, sponsor pilots, provide CSR funding & industrial field testing, co-develop civic hardware. |
-
----
 
 ## 3. End-to-End Civic Innovation Lifecycle
 
