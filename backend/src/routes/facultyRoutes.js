@@ -1,0 +1,18 @@
+const express = require('express');
+const router = express.Router();
+const {
+  getFaculty,
+  addFaculty,
+  updateFaculty,
+  removeFaculty
+} = require('../controllers/facultyController');
+const { protect, authorize } = require('../middleware/authMiddleware');
+
+router.use(protect);
+
+router.get('/', getFaculty);
+router.post('/', authorize('UNIVERSITY', 'ADMIN'), addFaculty);
+router.put('/:id', authorize('UNIVERSITY', 'ADMIN'), updateFaculty);
+router.delete('/:id', authorize('UNIVERSITY', 'ADMIN'), removeFaculty);
+
+module.exports = router;

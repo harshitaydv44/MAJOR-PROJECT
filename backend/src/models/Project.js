@@ -1,0 +1,453 @@
+const mongoose = require('mongoose');
+
+const milestoneDocumentSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  url: {
+    type: String,
+    required: true
+  },
+  publicId: {
+    type: String,
+    default: ''
+  },
+  fileType: {
+    type: String,
+    default: 'application/pdf'
+  },
+  uploadedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const milestoneCommentSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  userName: {
+    type: String,
+    required: true
+  },
+  userRole: {
+    type: String,
+    required: true
+  },
+  comment: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const milestoneSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  startDate: {
+    type: Date,
+    default: Date.now
+  },
+  dueDate: {
+    type: Date
+  },
+  completedDate: {
+    type: Date
+  },
+  status: {
+    type: String,
+    enum: ['NOT_STARTED', 'IN_PROGRESS', 'UNDER_REVIEW', 'COMPLETED', 'DELAYED'],
+    default: 'NOT_STARTED'
+  },
+  progress: {
+    type: Number,
+    min: 0,
+    max: 100,
+    default: 0
+  },
+  deliverables: [
+    {
+      type: String,
+      trim: true
+    }
+  ],
+  documents: [milestoneDocumentSchema],
+  assignedMembers: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    }
+  ],
+  comments: [milestoneCommentSchema]
+});
+
+const proposalSchema = new mongoose.Schema({
+  problemUnderstanding: {
+    type: String,
+    trim: true
+  },
+  proposedSolution: {
+    type: String,
+    trim: true
+  },
+  methodology: {
+    type: String,
+    trim: true
+  },
+  technology: [
+    {
+      type: String,
+      trim: true
+    }
+  ],
+  timeline: {
+    type: String,
+    trim: true
+  },
+  expectedImpact: {
+    type: String,
+    trim: true
+  },
+  submittedAt: {
+    type: Date
+  },
+  reviewedAt: {
+    type: Date
+  },
+  reviewNotes: {
+    type: String,
+    default: ''
+  },
+  approvalStatus: {
+    type: String,
+    enum: ['DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'NEEDS_REVISION'],
+    default: 'DRAFT'
+  }
+});
+
+const projectDocumentSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  url: {
+    type: String,
+    required: true
+  },
+  publicId: {
+    type: String,
+    default: ''
+  },
+  fileType: {
+    type: String,
+    default: 'application/pdf'
+  },
+  milestoneId: {
+    type: mongoose.Schema.Types.ObjectId
+  },
+  uploadedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  uploaderName: {
+    type: String,
+    default: 'Stakeholder'
+  },
+  uploaderRole: {
+    type: String,
+    default: 'UNIVERSITY'
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const projectUpdateSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  userName: {
+    type: String,
+    required: true
+  },
+  userRole: {
+    type: String,
+    required: true
+  },
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  content: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  type: {
+    type: String,
+    enum: [
+      'UPDATE',
+      'STAGE_TRANSITION',
+      'MILESTONE_COMPLETION',
+      'DOCUMENT_UPLOAD',
+      'ADMIN_INTERVENTION'
+    ],
+    default: 'UPDATE'
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const projectCommentSchema = new mongoose.Schema({
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  userName: {
+    type: String,
+    required: true
+  },
+  userRole: {
+    type: String,
+    required: true
+  },
+  comment: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const impactOutcomeSchema = new mongoose.Schema({
+  solutionDescription: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  deploymentLocation: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  peopleBenefited: {
+    type: Number,
+    default: 0
+  },
+  communitiesCovered: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  cost: {
+    type: Number,
+    default: 0
+  },
+  outcome: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  evidence: [
+    {
+      title: String,
+      url: String,
+      publicId: String
+    }
+  ],
+  technologyTransferred: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  patentIpInfo: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  startupCreated: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  scalabilityPotential: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  verifiedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  verifiedAt: {
+    type: Date
+  },
+  isClaimed: {
+    type: Boolean,
+    default: false
+  }
+});
+
+const projectSchema = new mongoose.Schema(
+  {
+    challengeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Challenge',
+      required: [true, 'Associated Challenge ID is required']
+    },
+    universityId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'University ID is required']
+    },
+    title: {
+      type: String,
+      required: [true, 'Project title is required'],
+      trim: true
+    },
+    description: {
+      type: String,
+      required: [true, 'Problem statement is required'],
+      trim: true
+    },
+    proposedSolution: {
+      type: String,
+      required: [true, 'Proposed solution description is required'],
+      trim: true
+    },
+    objectives: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    technologies: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    timeline: {
+      type: String,
+      default: '6 Months',
+      trim: true
+    },
+    budget: {
+      estimatedAmount: {
+        type: Number,
+        default: 0
+      },
+      breakdown: {
+        type: String,
+        default: ''
+      }
+    },
+    teamRequirements: {
+      type: String,
+      default: ''
+    },
+    mentor: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Faculty'
+    },
+    team: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team'
+    },
+    milestones: [milestoneSchema],
+    overallProgress: {
+      type: Number,
+      min: 0,
+      max: 100,
+      default: 0
+    },
+    status: {
+      type: String,
+      enum: [
+        'CHALLENGE_ACCEPTED',
+        'PROJECT_CREATED',
+        'PROPOSAL_SUBMITTED',
+        'APPROVED',
+        'RESEARCH',
+        'PROTOTYPE',
+        'TESTING',
+        'PILOT',
+        'VALIDATION',
+        'DEPLOYMENT',
+        'COMPLETED'
+      ],
+      default: 'PROJECT_CREATED'
+    },
+    industryPartners: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User'
+      }
+    ],
+    documents: [projectDocumentSchema],
+    updates: [projectUpdateSchema],
+    comments: [projectCommentSchema],
+    impactOutcome: {
+      type: impactOutcomeSchema,
+      default: () => ({})
+    },
+    outcomes: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    proposal: proposalSchema,
+    aiRecommendedIndustries: [
+      {
+        industryId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+        organizationName: { type: String },
+        organizationType: { type: String },
+        industrySector: { type: String },
+        score: { type: Number },
+        percentage: { type: Number },
+        matchingReasons: [{ type: String }],
+        explainableSummary: { type: String },
+        matchedAt: { type: Date, default: Date.now },
+        status: {
+          type: String,
+          enum: ['PENDING', 'ACCEPTED', 'IGNORED'],
+          default: 'PENDING'
+        }
+      }
+    ]
+  },
+  {
+    timestamps: true
+  }
+);
+
+module.exports = mongoose.model('Project', projectSchema);

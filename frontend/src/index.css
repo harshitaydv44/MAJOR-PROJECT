@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Strictly enforce Georgia serif typography across all HTML elements */
+*,
+*::before,
+*::after,
+input,
+button,
+select,
+textarea {
+  font-family: Georgia, "Times New Roman", serif !important;
+}
+
+html, body {
+  font-family: Georgia, "Times New Roman", serif !important;
+  background-color: #fdfcf9;
+  color: #1a1f26;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Public-sector clean borders and light-theme card styling */
+.gov-card {
+  background-color: #ffffff;
+  border: 1px solid #dbe1e8;
+  border-radius: 4px;
+  transition: all 0.2s ease-in-out;
+}
+
+.gov-card:hover {
+  border-color: #7a1113;
+  box-shadow: 0 4px 12px rgba(122, 17, 19, 0.08);
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f3f5;
+}
+::-webkit-scrollbar-thumb {
+  background: #c2c9d1;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7a1113;
+}
