@@ -119,7 +119,7 @@ const UniversityDashboardPage = () => {
 
         <MetricCard
           title="Student Teams"
-          value={stats.studentTeams ?? 14}
+          value={stats.studentTeams ?? 0}
           subtitle="Multidisciplinary cohorts"
           icon={Users2}
           accent="indigo"
@@ -127,7 +127,7 @@ const UniversityDashboardPage = () => {
 
         <MetricCard
           title="Faculty Mentors"
-          value={stats.facultyMentors ?? 8}
+          value={stats.facultyMentors ?? 0}
           subtitle="Supervising researchers"
           icon={GraduationCap}
           accent="maroon"

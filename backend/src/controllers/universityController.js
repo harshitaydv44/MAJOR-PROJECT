@@ -1,6 +1,9 @@
 const University = require('../models/University');
 const User = require('../models/User');
 const Challenge = require('../models/Challenge');
+const Project = require('../models/Project');
+const Team = require('../models/Team');
+const Faculty = require('../models/Faculty');
 const AuditLog = require('../models/AuditLog');
 const Notification = require('../models/Notification');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
@@ -175,8 +178,11 @@ const getChallenges = async (req, res, next) => {
 
     // 1. Available Challenges in Marketplace: VALIDATED & Unassigned
     const availableRaw = await Challenge.find({
-      status: 'VALIDATED',
-      assignedUniversity: null
+      status: { $in: ['VALIDATED', 'validated'] },
+      $or: [
+        { assignedUniversity: null },
+        { assignedUniversity: { $exists: false } }
+      ]
     })
       .populate('submittedBy', 'name email organization district')
       .sort({ createdAt: -1 });
@@ -193,27 +199,38 @@ const getChallenges = async (req, res, next) => {
     });
 
     // 2. Assigned Challenges (Under this university's care)
+    const universityIds = [userId];
+    if (university?._id) {
+      universityIds.push(university._id);
+    }
+
     const assignedChallenges = await Challenge.find({
-      assignedUniversity: userId
+      assignedUniversity: { $in: universityIds }
     })
       .populate('submittedBy', 'name email organization district')
       .populate('industryPartner', 'name organization email')
       .sort({ updatedAt: -1 });
 
-    // 3. Dynamic metrics
-    const activeProjects = assignedChallenges.filter((c) =>
-      ['ASSIGNED', 'IN_PROGRESS', 'SOLUTION_PROPOSED', 'PILOT_TESTING'].includes(c.status)
-    ).length;
-
-    const completedProjects = assignedChallenges.filter((c) => c.status === 'RESOLVED').length;
+    // 3. Dynamic metrics directly queried from database models
+    const [
+      activeProjects,
+      completedProjects,
+      studentTeams,
+      facultyMentors
+    ] = await Promise.all([
+      Project.countDocuments({ universityId: userId, status: { $ne: 'COMPLETED' } }),
+      Project.countDocuments({ universityId: userId, status: 'COMPLETED' }),
+      Team.countDocuments({ university: userId }),
+      Faculty.countDocuments({ university: userId, isActive: { $ne: false } })
+    ]);
 
     const stats = {
       availableChallenges: availableChallenges.length,
       assignedChallenges: assignedChallenges.length,
       activeProjects,
       completedProjects,
-      studentTeams: university?.studentTeamsCount || 14,
-      facultyMentors: university?.facultyMentorsCount || 8
+      studentTeams,
+      facultyMentors
     };
 
     return successResponse(res, 'University challenges & marketplace retrieved successfully', {
