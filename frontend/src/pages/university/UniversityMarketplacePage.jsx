@@ -3,6 +3,7 @@ import { universityService } from '../../services/universityService';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
+import StatusBadge from '../../components/common/StatusBadge';
 import LoadingState from '../../components/common/LoadingState';
 import ErrorState from '../../components/common/ErrorState';
 import {
@@ -38,6 +39,7 @@ const UniversityMarketplacePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
   const [error, setError] = useState('');
+  const [modalError, setModalError] = useState('');
 
   const fetchMarketplace = async () => {
     setLoading(true);
@@ -63,15 +65,17 @@ const UniversityMarketplacePage = () => {
     if (!interestChallenge) return;
 
     setSubmitting(true);
+    setModalError('');
     try {
       await universityService.expressInterest(interestChallenge._id, interestNote);
       setActionSuccess(`Expression of interest registered for [${interestChallenge.code}]!`);
       setInterestChallenge(null);
       setInterestNote('');
+      setModalError('');
       setTimeout(() => setActionSuccess(''), 4000);
       fetchMarketplace();
     } catch (err) {
-      alert(err.message || 'Failed to register interest');
+      setModalError(err.message || 'Failed to register interest. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -82,6 +86,7 @@ const UniversityMarketplacePage = () => {
     if (!acceptChallenge) return;
 
     setSubmitting(true);
+    setModalError('');
     try {
       await universityService.acceptChallenge(acceptChallenge._id, {
         facultyLeadName: facultyName,
@@ -89,15 +94,16 @@ const UniversityMarketplacePage = () => {
         comment: acceptComment
       });
 
-      setActionSuccess(`Challenge [${acceptChallenge.code}] successfully adopted! Redirecting to Assigned Challenges...`);
+      setActionSuccess(`Challenge [${acceptChallenge.code}] successfully adopted! It now appears under Assigned Challenges.`);
       setAcceptChallenge(null);
       setFacultyName('');
       setFacultyDept('');
       setAcceptComment('');
-      setTimeout(() => setActionSuccess(''), 4000);
+      setModalError('');
+      setTimeout(() => setActionSuccess(''), 5000);
       fetchMarketplace();
     } catch (err) {
-      alert(err.message || 'Failed to adopt challenge');
+      setModalError(err.message || 'Failed to adopt challenge. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -458,7 +464,7 @@ const UniversityMarketplacePage = () => {
                 <span>Express Institutional Interest</span>
               </h3>
               <button
-                onClick={() => setInterestChallenge(null)}
+                onClick={() => { setInterestChallenge(null); setModalError(''); }}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
                 <X className="w-4 h-4" />
@@ -473,6 +479,13 @@ const UniversityMarketplacePage = () => {
                 District: {interestChallenge.district} &bull; Category: {interestChallenge.category}
               </div>
             </div>
+
+            {modalError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-xs flex items-start space-x-2">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <span>{modalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleExpressInterest} className="space-y-3 text-xs">
               <div>
@@ -492,7 +505,7 @@ const UniversityMarketplacePage = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setInterestChallenge(null)}
+                  onClick={() => { setInterestChallenge(null); setModalError(''); }}
                   disabled={submitting}
                 >
                   Cancel
@@ -522,7 +535,7 @@ const UniversityMarketplacePage = () => {
                 <span>Adopt Civic Challenge for Academic Prototyping</span>
               </h3>
               <button
-                onClick={() => setAcceptChallenge(null)}
+                onClick={() => { setAcceptChallenge(null); setModalError(''); }}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
                 <X className="w-4 h-4" />
@@ -537,6 +550,13 @@ const UniversityMarketplacePage = () => {
                 District: {acceptChallenge.district} &bull; Category: {acceptChallenge.category}
               </div>
             </div>
+
+            {modalError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-xs flex items-start space-x-2">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <span>{modalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleAcceptChallenge} className="space-y-3 text-xs">
               <div>
@@ -588,7 +608,7 @@ const UniversityMarketplacePage = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setAcceptChallenge(null)}
+                  onClick={() => { setAcceptChallenge(null); setModalError(''); }}
                   disabled={submitting}
                 >
                   Cancel

@@ -263,11 +263,30 @@ const expressInterest = async (req, res, next) => {
       return errorResponse(res, 'Challenge not found', null, 404);
     }
 
+    // Only allow interest on VALIDATED, unassigned challenges
+    const currentStatus = (challenge.status || '').toUpperCase();
+    if (currentStatus !== 'VALIDATED') {
+      return errorResponse(
+        res,
+        `Cannot express interest: challenge is currently '${challenge.status}'. Only VALIDATED challenges are open for interest registration.`,
+        null,
+        400
+      );
+    }
+    if (challenge.assignedUniversity) {
+      return errorResponse(
+        res,
+        'This challenge has already been adopted by another university and is no longer available.',
+        null,
+        400
+      );
+    }
+
     const uniName = university?.name || req.user.name || 'University Research Lab';
 
-    // Check if already expressed interest
+    // Null-safe idempotency check — guard against subdoc records missing the university field
     const already = challenge.interestedUniversities.some(
-      (u) => u.university.toString() === userId.toString()
+      (u) => u.university && u.university.toString() === userId.toString()
     );
 
     if (!already) {
@@ -282,7 +301,7 @@ const expressInterest = async (req, res, next) => {
 
     if (university) {
       const uAlready = university.interestedChallenges.some(
-        (ic) => ic.challenge.toString() === id.toString()
+        (ic) => ic.challenge && ic.challenge.toString() === id.toString()
       );
       if (!uAlready) {
         university.interestedChallenges.push({
@@ -357,6 +376,10 @@ const acceptChallenge = async (req, res, next) => {
       comment: adoptionComment,
       date: new Date()
     });
+
+    // Mark first two lifecycle milestones complete on adoption
+    if (challenge.milestones.length > 0) challenge.milestones[0].completed = true;
+    if (challenge.milestones.length > 1) challenge.milestones[1].completed = true;
 
     await challenge.save();
 

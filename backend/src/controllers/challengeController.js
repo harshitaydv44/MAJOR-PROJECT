@@ -287,7 +287,7 @@ const assignCohort = async (req, res, next) => {
       challenge.assignedStudents = studentIds;
     }
     if (solutionNotes) challenge.solutionNotes = solutionNotes;
-    challenge.status = 'in_progress';
+    challenge.status = 'IN_PROGRESS';
 
     if (challenge.milestones.length > 1) {
       challenge.milestones[0].completed = true;
