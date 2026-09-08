@@ -1,5 +1,7 @@
 const Challenge = require('../models/Challenge');
 const User = require('../models/User');
+const University = require('../models/University');
+const aiService = require('../services/aiService');
 const { dispatchNotification } = require('../services/notificationDispatcher');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
@@ -61,6 +63,92 @@ const createChallenge = async (req, res, next) => {
         { title: 'Pilot Field Testing in Delhi Ward', completed: false }
       ]
     });
+
+    // Phase 3: AI Service Integration (isolated, resilient to partial or total outage)
+    try {
+      const [otherChallenges, universities] = await Promise.all([
+        Challenge.find({ _id: { $ne: challenge._id } })
+          .select('code title description')
+          .limit(50)
+          .lean(),
+        University.find({}).lean()
+      ]);
+
+      const [classifyResult, priorityResult, dupResult, summaryResult, matchResult] = await Promise.allSettled([
+        aiService.classify(challenge.title, challenge.description),
+        aiService.recommendPriority({
+          title: challenge.title,
+          description: challenge.description,
+          urgency: challenge.urgency,
+          severity: challenge.severity,
+          affectedPopulation: challenge.impact
+        }),
+        otherChallenges.length > 0
+          ? aiService.checkDuplicates({
+              title: challenge.title,
+              description: challenge.description,
+              existingChallenges: otherChallenges
+            })
+          : Promise.resolve(null),
+        aiService.summarize({
+          title: challenge.title,
+          description: challenge.description,
+          location: challenge.location?.area || challenge.location?.landmark,
+          district: challenge.district
+        }),
+        universities.length > 0
+          ? aiService.matchUniversities(challenge, universities)
+          : Promise.resolve(null)
+      ]);
+
+      if (classifyResult.status === 'fulfilled' && classifyResult.value) {
+        challenge.aiClassification = classifyResult.value;
+      } else if (classifyResult.status === 'rejected') {
+        console.warn('[AI Service Notice] Classification failed:', classifyResult.reason?.message);
+      }
+
+      if (priorityResult.status === 'fulfilled' && priorityResult.value) {
+        challenge.aiPriority = {
+          recommendedPriority: priorityResult.value.recommendation,
+          confidence: priorityResult.value.confidence,
+          reasoning: priorityResult.value.reasoning
+        };
+      } else if (priorityResult.status === 'rejected') {
+        console.warn('[AI Service Notice] Priority recommendation failed:', priorityResult.reason?.message);
+      }
+
+      if (dupResult.status === 'fulfilled' && dupResult.value) {
+        challenge.aiDuplicateScore = dupResult.value.similarityScore || 0;
+        challenge.aiDuplicates = (dupResult.value.topMatches || []).map((m) => ({
+          challengeId: m.id,
+          code: m.code,
+          title: m.title,
+          similarityScore: m.similarityScore
+        }));
+      } else if (dupResult.status === 'rejected') {
+        console.warn('[AI Service Notice] Duplicate check failed:', dupResult.reason?.message);
+      }
+
+      if (summaryResult.status === 'fulfilled' && summaryResult.value?.summary) {
+        challenge.aiSummary = summaryResult.value.summary;
+      } else if (summaryResult.status === 'rejected') {
+        console.warn('[AI Service Notice] Summarization failed:', summaryResult.reason?.message);
+      }
+
+      if (matchResult.status === 'fulfilled' && matchResult.value && matchResult.value.length > 0) {
+        challenge.aiRecommendedUniversities = matchResult.value.map((r) => ({
+          ...r,
+          status: 'PENDING',
+          matchedAt: new Date()
+        }));
+      } else if (matchResult.status === 'rejected') {
+        console.warn('[AI Service Notice] University matching failed:', matchResult.reason?.message);
+      }
+
+      await challenge.save();
+    } catch (aiBatchErr) {
+      console.warn('[AI Service Notice] AI enrichment failed non-critically:', aiBatchErr.message);
+    }
 
     const populated = await Challenge.findById(challenge._id).populate('submittedBy', 'name email organization role');
 

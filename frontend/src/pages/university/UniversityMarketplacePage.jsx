@@ -215,11 +215,17 @@ const UniversityMarketplacePage = () => {
                     {/* AI Recommended Expertise */}
                     <td className="px-3 py-3">
                       <div className="flex flex-col gap-1">
-                        {c.aiRecommendedUniversities && c.aiRecommendedUniversities.length > 0 && (
+                        {c.aiRecommendedUniversities && c.aiRecommendedUniversities.length > 0 ? (
                           <div className="flex items-center space-x-1 mb-0.5">
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                               <Sparkles className="w-2.5 h-2.5 mr-1 text-amber-700" />
                               {c.aiRecommendedUniversities[0].percentage}% AI Fit
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-1 mb-0.5">
+                            <span className="text-[10px] text-gov-text-muted italic">
+                              Not yet analyzed
                             </span>
                           </div>
                         )}
@@ -334,7 +340,54 @@ const UniversityMarketplacePage = () => {
                 </div>
               )}
 
-              {viewingChallenge.aiRecommendedUniversities && viewingChallenge.aiRecommendedUniversities.length > 0 && (
+              {/* AI Structured Summary */}
+              {viewingChallenge.aiSummary?.problem ? (
+                <div className="p-3 bg-gov-sand-50 rounded-xs border border-gov-border space-y-1">
+                  <span className="font-bold text-gov-navy block uppercase text-[10px] tracking-wider">
+                    AI Problem Extraction & Target Outcome
+                  </span>
+                  <p className="text-[11px] text-gov-text-secondary">
+                    <strong>Extracted Problem:</strong> {viewingChallenge.aiSummary.problem}
+                  </p>
+                  {viewingChallenge.aiSummary.expectedOutcome && (
+                    <p className="text-[11px] text-gov-text-secondary">
+                      <strong>Expected Outcome:</strong> {viewingChallenge.aiSummary.expectedOutcome}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2 bg-gov-sand-50/50 rounded-xs border border-dashed border-gov-border text-[11px] text-gov-text-muted italic">
+                  AI Problem Summary: Not yet analyzed
+                </div>
+              )}
+
+              {/* AI Priority Recommendation */}
+              {viewingChallenge.aiPriority?.recommendedPriority ? (
+                <div className="p-2.5 bg-amber-50/60 rounded-xs border border-amber-200 text-xs space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-900 uppercase text-[10px]">
+                      AI Priority Recommendation: {viewingChallenge.aiPriority.recommendedPriority}
+                    </span>
+                    {viewingChallenge.aiPriority.confidence > 0 && (
+                      <span className="text-[10px] text-amber-700 font-medium">
+                        {Math.round(viewingChallenge.aiPriority.confidence * 100)}% Confidence
+                      </span>
+                    )}
+                  </div>
+                  {viewingChallenge.aiPriority.reasoning && (
+                    <p className="text-amber-800 text-[11px] leading-relaxed">
+                      {viewingChallenge.aiPriority.reasoning}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2 bg-gov-sand-50/50 rounded-xs border border-dashed border-gov-border text-[11px] text-gov-text-muted italic">
+                  AI Priority Assessment: Not yet analyzed
+                </div>
+              )}
+
+              {/* AI Institutional Match */}
+              {viewingChallenge.aiRecommendedUniversities && viewingChallenge.aiRecommendedUniversities.length > 0 ? (
                 <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xs space-y-1.5 font-serif">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-indigo-950 uppercase text-[10px] tracking-wider flex items-center space-x-1">
@@ -355,6 +408,10 @@ const UniversityMarketplacePage = () => {
                       ))}
                     </ul>
                   )}
+                </div>
+              ) : (
+                <div className="p-2 bg-gov-sand-50/50 rounded-xs border border-dashed border-gov-border text-[11px] text-gov-text-muted italic">
+                  Institutional AI Recommendation: Not yet analyzed
                 </div>
               )}
 
