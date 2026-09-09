@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { universityService } from '../../services/universityService';
+import { projectService } from '../../services/projectService';
 import MetricCard from '../../components/common/MetricCard';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
@@ -26,17 +27,20 @@ const UniversityDashboardPage = () => {
 
   const [data, setData] = useState(null);
   const [profile, setProfile] = useState(null);
+  const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [chalRes, profRes] = await Promise.all([
+      const [chalRes, profRes, projRes] = await Promise.all([
         universityService.getChallenges(),
-        universityService.getProfile()
+        universityService.getProfile(),
+        projectService.getProjects()
       ]);
       setData(chalRes.data);
       setProfile(profRes.data?.university);
+      setProjects(projRes.data?.projects || []);
     } catch (err) {
       console.error('Failed to load university dashboard data:', err);
     } finally {
@@ -53,6 +57,8 @@ const UniversityDashboardPage = () => {
   }
 
   const { stats = {}, availableChallenges = [], assignedChallenges = [] } = data || {};
+  const activeProjectList = projects.filter((p) => p.status !== 'COMPLETED');
+  const completedProjectList = projects.filter((p) => p.status === 'COMPLETED');
 
   return (
     <div className="space-y-6 font-serif">
@@ -160,7 +166,87 @@ const UniversityDashboardPage = () => {
         </div>
       )}
 
-      {/* 2-Column Grid: Assigned Projects + Institutional Profile */}
+      {/* Innovation Projects (live Project documents — same COMPLETED rule as Phase 1 counts) */}
+      <Card
+        accent="navy"
+        title={`Innovation Projects (${projects.length})`}
+        subtitle={`Active ${activeProjectList.length} · Completed ${completedProjectList.length} — matches dashboard counts when sourced from this university's Project records`}
+      >
+        {projects.length === 0 ? (
+          <div className="py-8 text-center text-xs text-gov-text-muted space-y-2">
+            <p>No innovation projects yet for this university.</p>
+            <Link to="/university/projects">
+              <Button variant="outline" size="sm" icon={Briefcase}>
+                Open Projects Workspace
+              </Button>
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <div className="font-bold text-gov-navy uppercase tracking-wider text-[10px] mb-2">
+                Active ({activeProjectList.length})
+              </div>
+              {activeProjectList.length === 0 ? (
+                <p className="text-gov-text-muted">No active projects.</p>
+              ) : (
+                <div className="divide-y divide-gov-border">
+                  {activeProjectList.map((p) => (
+                    <div key={p._id} className="py-2.5 space-y-1">
+                      <div className="font-bold text-gov-navy">{p.title}</div>
+                      <div className="text-[11px] text-gov-text-muted">
+                        {p.challengeId?.code ? `[${p.challengeId.code}] ` : ''}
+                        {p.challengeId?.title || p.challengeId?.category || 'Unlinked challenge'}
+                        {' · '}
+                        {p.status}
+                        {p.team?.name ? ` · Team: ${p.team.name}` : ''}
+                        {p.timeline ? ` · ${p.timeline}` : ''}
+                      </div>
+                      <Link
+                        to={`/projects/${p._id}`}
+                        className="text-gov-maroon font-bold hover:underline inline-flex items-center"
+                      >
+                        <span>Open workspace</span>
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div>
+              <div className="font-bold text-gov-navy uppercase tracking-wider text-[10px] mb-2">
+                Completed ({completedProjectList.length})
+              </div>
+              {completedProjectList.length === 0 ? (
+                <p className="text-gov-text-muted">No completed projects.</p>
+              ) : (
+                <div className="divide-y divide-gov-border">
+                  {completedProjectList.map((p) => (
+                    <div key={p._id} className="py-2.5 space-y-1">
+                      <div className="font-bold text-gov-navy">{p.title}</div>
+                      <div className="text-[11px] text-gov-text-muted">
+                        {p.challengeId?.code ? `[${p.challengeId.code}] ` : ''}
+                        {p.challengeId?.title || p.challengeId?.category || 'Unlinked challenge'}
+                        {p.team?.name ? ` · Team: ${p.team.name}` : ''}
+                      </div>
+                      <Link
+                        to={`/projects/${p._id}`}
+                        className="text-gov-maroon font-bold hover:underline inline-flex items-center"
+                      >
+                        <span>Open workspace</span>
+                        <ArrowRight className="w-3 h-3 ml-1" />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Card>
+
+      {/* 2-Column Grid: Assigned Challenges + Institutional Profile */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Assigned Challenges List */}
         <div className="lg:col-span-2 space-y-4">
