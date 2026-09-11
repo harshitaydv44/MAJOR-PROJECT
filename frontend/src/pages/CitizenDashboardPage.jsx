@@ -7,6 +7,7 @@ import EmptyState from '../components/common/EmptyState';
 import ErrorState from '../components/common/ErrorState';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import { clientService } from '../services/clientService';
 import { problemService } from '../services/problemService';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -18,7 +19,9 @@ import {
   ArrowRight,
   TrendingUp,
   MapPin,
-  RefreshCw
+  RefreshCw,
+  HelpCircle,
+  Bookmark
 } from 'lucide-react';
 
 const CitizenDashboardPage = () => {
@@ -33,13 +36,38 @@ const CitizenDashboardPage = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await problemService.getMyProblems();
-      const { stats: fetchedStats, problems: fetchedProblems } = response.data || {};
-      setStats(fetchedStats || { total: 0, underReview: 0, inProgress: 0, resolved: 0 });
-      setProblems(fetchedProblems || []);
+      // Call primary client dashboard endpoint
+      const dashRes = await clientService.getDashboard();
+      const dashData = dashRes?.data || {};
+
+      setStats({
+        total: dashData.totalChallenges ?? 0,
+        underReview: dashData.underReview ?? 0,
+        inProgress: dashData.inProgress ?? 0,
+        resolved: dashData.resolved ?? 0,
+        submitted: dashData.submitted ?? 0,
+        needsInfo: dashData.needsInfo ?? 0,
+        savedChallenges: dashData.savedChallenges ?? 0
+      });
+
+      if (dashData.recentChallenges && dashData.recentChallenges.length > 0) {
+        setProblems(dashData.recentChallenges);
+      } else {
+        // Fallback: fetch problems list
+        const probRes = await problemService.getMyProblems({ limit: 5 });
+        setProblems(probRes?.data?.problems || []);
+      }
     } catch (err) {
-      console.error('Failed to load citizen problems:', err);
-      setError(err.message || 'Failed to fetch dashboard data. Please try again.');
+      console.error('Failed to load citizen dashboard data:', err);
+      // Secondary fallback
+      try {
+        const fallbackRes = await problemService.getMyProblems({ limit: 5 });
+        const { stats: fetchedStats, problems: fetchedProblems } = fallbackRes?.data || {};
+        setStats(fetchedStats || { total: 0, underReview: 0, inProgress: 0, resolved: 0, needsInfo: 0 });
+        setProblems(fetchedProblems || []);
+      } catch (fallbackErr) {
+        setError(err.message || 'Failed to fetch dashboard data. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }
@@ -50,7 +78,7 @@ const CitizenDashboardPage = () => {
   }, []);
 
   if (loading) {
-    return <LoadingState message="Loading your submitted challenges and statistics..." />;
+    return <LoadingState message="Loading your submitted challenges and statistics from Delhi State Registry..." />;
   }
 
   if (error) {
@@ -65,9 +93,6 @@ const CitizenDashboardPage = () => {
       </div>
     );
   }
-
-  // Recent 5 challenges for the overview table
-  const recentChallenges = problems.slice(0, 5);
 
   return (
     <div className="space-y-6">
@@ -98,19 +123,25 @@ const CitizenDashboardPage = () => {
         </div>
       </div>
 
-      {error && (
-        <div className="p-4 bg-red-50 border border-red-200 text-red-700 text-xs font-serif rounded-sm flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{error}</span>
+      {/* Action Required Banner if admin requested information */}
+      {stats?.needsInfo > 0 && (
+        <div className="p-4 bg-amber-50 border border-amber-300 text-amber-900 rounded-sm flex items-center justify-between font-serif text-xs">
+          <div className="flex items-center space-x-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+            <div>
+              <span className="font-bold">Administrative Action Required:</span>{' '}
+              District authorities have requested supplementary evidence or clarification on {stats.needsInfo} challenge{stats.needsInfo > 1 ? 's' : ''}.
+            </div>
           </div>
-          <Button variant="subtle" size="sm" onClick={loadDashboardData}>
-            Retry
-          </Button>
+          <Link to="/client/challenges?status=NEEDS_INFORMATION" className="flex-shrink-0">
+            <Button variant="outline" size="sm" className="border-amber-400 text-amber-900 hover:bg-amber-100">
+              Review Requests &rarr;
+            </Button>
+          </Link>
         </div>
       )}
 
-      {/* 4 Summary Cards */}
+      {/* 4 Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <DashboardCard
           title="Challenges Submitted"
@@ -155,15 +186,22 @@ const CitizenDashboardPage = () => {
         title="Recent Challenges"
         subtitle="Your latest submitted societal statements and active lifecycle status"
         headerAction={
-          <Link to="/client/challenges">
-            <Button variant="subtle" size="sm" icon={ArrowRight}>
-              View All ({problems.length})
-            </Button>
-          </Link>
+          <div className="flex items-center space-x-2">
+            <Link to="/client/saved">
+              <Button variant="subtle" size="sm" icon={Bookmark}>
+                Saved ({stats?.savedChallenges || 0})
+              </Button>
+            </Link>
+            <Link to="/client/challenges">
+              <Button variant="subtle" size="sm" icon={ArrowRight}>
+                View All ({stats?.total || problems.length})
+              </Button>
+            </Link>
+          </div>
         }
       >
         <ChallengeTable
-          challenges={recentChallenges}
+          challenges={problems}
           onViewDetails={(id) => navigate(`/client/challenges/${id}`)}
           emptyMessage="You have not submitted any challenges yet. Use 'Submit a Challenge' to lodge your first community problem."
         />

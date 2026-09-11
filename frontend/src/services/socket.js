@@ -4,6 +4,8 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000';
 
 let socket = null;
 
+export const getSocket = () => socket;
+
 export const socketService = {
   /**
    * Connect to Socket.IO server and bind authenticated user room

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { clientService } from '../services/clientService';
 import { problemService } from '../services/problemService';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -7,7 +8,7 @@ import Badge from '../components/common/Badge';
 import { User, Mail, Phone, Building, MapPin, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 
 const ProfilePage = () => {
-  const { user } = useAuth();
+  const { user, login: updateAuthUser } = useAuth();
 
   const [name, setName] = useState(user?.name || '');
   const [phone, setPhone] = useState(user?.phone || '');
@@ -16,8 +17,32 @@ const ProfilePage = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [fetchingProfile, setFetchingProfile] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+
+  // Fetch real profile on mount from MongoDB
+  useEffect(() => {
+    const loadProfile = async () => {
+      setFetchingProfile(true);
+      try {
+        const res = await clientService.getProfile();
+        const profileUser = res?.data?.user || res?.user;
+        if (profileUser) {
+          setName(profileUser.name || '');
+          setPhone(profileUser.phone || '');
+          setOrganization(profileUser.organization || '');
+          setDistrict(profileUser.district || 'Central Delhi');
+        }
+      } catch (err) {
+        console.warn('Could not refresh profile from server, using cached session:', err.message);
+      } finally {
+        setFetchingProfile(false);
+      }
+    };
+
+    loadProfile();
+  }, []);
 
   const delhiDistricts = [
     'Central Delhi',

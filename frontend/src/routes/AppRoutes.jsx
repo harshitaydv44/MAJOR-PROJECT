@@ -22,6 +22,8 @@ import CitizenDashboardPage from '../pages/CitizenDashboardPage';
 import ChallengeDetailPage from '../pages/ChallengeDetailPage';
 import MyChallengesPage from '../pages/MyChallengesPage';
 import ProfilePage from '../pages/ProfilePage';
+import SubmitChallengePage from '../pages/client/SubmitChallengePage';
+import EditChallengePage from '../pages/client/EditChallengePage';
 import {
   SubmitLaunchpadPage,
   SavedChallengesPage,
@@ -105,9 +107,12 @@ const AppRoutes = () => {
         }
       >
         <Route index element={<CitizenDashboardPage />} />
+        <Route path="dashboard" element={<CitizenDashboardPage />} />
         <Route path="challenges" element={<MyChallengesPage />} />
+        <Route path="challenges/new" element={<SubmitChallengePage />} />
         <Route path="challenges/:id" element={<ChallengeDetailPage />} />
-        <Route path="submit" element={<SubmitLaunchpadPage />} />
+        <Route path="challenges/:id/edit" element={<EditChallengePage />} />
+        <Route path="submit" element={<SubmitChallengePage />} />
         <Route path="saved" element={<SavedChallengesPage />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="profile" element={<ProfilePage />} />

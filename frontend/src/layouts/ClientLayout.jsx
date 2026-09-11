@@ -11,10 +11,11 @@ const ClientLayout = () => {
 
   const getBreadcrumbTitle = () => {
     const path = location.pathname;
-    if (path === '/client') return 'Overview';
+    if (path === '/client' || path === '/client/dashboard') return 'Overview';
+    if (path === '/client/challenges/new' || path === '/client/submit') return 'Submit a Challenge';
+    if (path.includes('/edit')) return 'Edit Challenge';
     if (path.startsWith('/client/challenges/') && path !== '/client/challenges') return 'Challenge Detail';
     if (path === '/client/challenges') return 'My Challenges';
-    if (path === '/client/submit') return 'Submit a Challenge';
     if (path === '/client/saved') return 'Saved Challenges';
     if (path === '/client/notifications') return 'Notifications';
     if (path === '/client/profile') return 'Profile';
