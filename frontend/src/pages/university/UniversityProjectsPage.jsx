@@ -25,14 +25,21 @@ import {
 } from 'lucide-react';
 
 const STATUS_CONFIG = {
+  CHALLENGE_ACCEPTED: { label: 'Challenge Accepted', color: 'bg-stone-100 text-stone-700 border-stone-300' },
   PROJECT_CREATED: { label: 'Project Created', color: 'bg-stone-100 text-stone-700 border-stone-300' },
-  TEAM_FORMED: { label: 'Team Formed', color: 'bg-blue-100 text-blue-800 border-blue-300' },
   PROPOSAL_SUBMITTED: { label: 'Proposal Submitted', color: 'bg-amber-100 text-amber-800 border-amber-300' },
-  UNDER_REVIEW: { label: 'Under Review', color: 'bg-purple-100 text-purple-800 border-purple-300' },
   APPROVED: { label: 'Approved', color: 'bg-emerald-100 text-emerald-800 border-emerald-300 font-bold' },
-  DEVELOPMENT: { label: 'In Development', color: 'bg-indigo-100 text-indigo-900 border-indigo-300 font-bold' },
+  RESEARCH: { label: 'Research', color: 'bg-blue-100 text-blue-800 border-blue-300' },
+  PROTOTYPE: { label: 'Prototype', color: 'bg-indigo-100 text-indigo-900 border-indigo-300 font-bold' },
+  TESTING: { label: 'Testing', color: 'bg-purple-100 text-purple-800 border-purple-300' },
+  PILOT: { label: 'Pilot', color: 'bg-sky-100 text-sky-800 border-sky-300' },
+  VALIDATION: { label: 'Validation', color: 'bg-cyan-100 text-cyan-800 border-cyan-300' },
+  DEPLOYMENT: { label: 'Deployment', color: 'bg-orange-100 text-orange-800 border-orange-300 font-bold' },
   COMPLETED: { label: 'Completed', color: 'bg-teal-100 text-teal-800 border-teal-300 font-bold' }
 };
+
+/** Same classification as Phase 1 dashboard counts: status === 'COMPLETED' vs $ne: 'COMPLETED' */
+const isCompletedProject = (project) => project.status === 'COMPLETED';
 
 const UniversityProjectsPage = () => {
   const [projects, setProjects] = useState([]);
@@ -172,6 +179,105 @@ const UniversityProjectsPage = () => {
     }
   };
 
+  const activeProjects = projects.filter((p) => !isCompletedProject(p));
+  const completedProjects = projects.filter(isCompletedProject);
+
+  const renderProjectRows = (list) =>
+    list.map((p) => {
+      const statusInfo = STATUS_CONFIG[p.status] || { label: p.status, color: 'bg-gray-100 text-gray-700' };
+      const completedMilestones = (p.milestones || []).filter((m) => m.status === 'COMPLETED').length;
+      const totalMilestones = p.milestones?.length || 0;
+      return (
+        <tr key={p._id} className="hover:bg-gov-sand-50 transition-colors">
+          <td className="px-3 py-3 min-w-[240px]">
+            <div className="font-bold text-gov-navy text-sm leading-snug">{p.title}</div>
+            <div className="flex items-center space-x-2 text-[11px] text-gov-text-muted mt-1">
+              {p.challengeId ? (
+                <span className="font-mono text-gov-maroon font-bold bg-gov-sand-50 px-1 py-0.2 rounded-xs border border-gov-border">
+                  Challenge [{p.challengeId.code}]: {p.challengeId.title || p.challengeId.category}
+                </span>
+              ) : (
+                <span>Challenge unlinked</span>
+              )}
+            </div>
+          </td>
+          <td className="px-3 py-3 whitespace-nowrap">
+            <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-xs border ${statusInfo.color}`}>
+              {statusInfo.label}
+            </span>
+            <div className="text-[10px] text-gov-text-muted mt-1">
+              {p.overallProgress ?? 0}% complete
+            </div>
+          </td>
+          <td className="px-3 py-3 whitespace-nowrap">
+            {p.mentor ? (
+              <div className="text-[11px]">
+                <div className="font-bold text-gov-navy">{p.mentor.name}</div>
+                <div className="text-gray-500 text-[10px]">{p.mentor.department}</div>
+              </div>
+            ) : (
+              <span className="text-amber-700 italic text-[11px]">Pending Mentor</span>
+            )}
+          </td>
+          <td className="px-3 py-3 whitespace-nowrap">
+            {p.team ? (
+              <div className="text-[11px]">
+                <div className="font-bold text-indigo-900 flex items-center space-x-1">
+                  <Users2 className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>{p.team.name}</span>
+                </div>
+                <div className="text-gray-500 text-[10px]">
+                  {p.team.members?.length || 0} student innovator(s)
+                </div>
+              </div>
+            ) : (
+              <span className="text-gray-400 italic text-[11px]">Team not formed</span>
+            )}
+          </td>
+          <td className="px-3 py-3 whitespace-nowrap text-[11px] text-gov-text-secondary">
+            <div>{p.timeline}</div>
+            <div className="text-[10px] text-gov-text-muted">
+              Milestones {completedMilestones}/{totalMilestones}
+            </div>
+            <div className="font-bold text-emerald-800">
+              ₹{(p.budget?.estimatedAmount || 0).toLocaleString('en-IN')}
+            </div>
+          </td>
+          <td className="px-3 py-3 whitespace-nowrap text-right space-x-1">
+            <Link to={`/projects/${p._id}`}>
+              <Button
+                variant="subtle"
+                size="sm"
+                icon={Eye}
+                title="Open Project Lifecycle Workspace"
+              >
+                Workspace
+              </Button>
+            </Link>
+            {p.status === 'PROJECT_CREATED' || p.status === 'CHALLENGE_ACCEPTED' ? (
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  setProposalProject(p);
+                  setMethodology('Rapid prototyping with iterative laboratory analysis and field testing');
+                  setExpectedImpact('Civic infrastructure relief and open-source municipal hardware specification');
+                }}
+                icon={Send}
+                className="bg-gov-maroon hover:bg-gov-maroon-dark text-white"
+              >
+                Submit Proposal
+              </Button>
+            ) : (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-xs border border-emerald-200">
+                Proposal {p.proposal?.approvalStatus || (isCompletedProject(p) ? 'COMPLETED' : 'SUBMITTED')}
+              </span>
+            )}
+          </td>
+        </tr>
+      );
+    });
+
   const resetCreateForm = () => {
     setSelectedChallengeId('');
     setProjectTitle('');
@@ -198,7 +304,7 @@ const UniversityProjectsPage = () => {
             University Innovation Projects ({projects.length})
           </h1>
           <p className="text-xs text-gov-text-secondary mt-0.5">
-            Manage student-faculty innovation cohorts, link accepted civic challenges, form multidisciplinary teams, and track proposal approvals.
+            Active: {activeProjects.length} &bull; Completed: {completedProjects.length} — classified from live Project records (status COMPLETED).
           </p>
         </div>
 
@@ -245,120 +351,59 @@ const UniversityProjectsPage = () => {
           </Button>
         </Card>
       ) : (
-        <div className="space-y-4">
-          <div className="overflow-x-auto border border-gov-border rounded-xs bg-white shadow-xs">
-            <table className="w-full text-left text-xs divide-y divide-gov-border">
-              <thead>
-                <tr className="bg-gov-sand-100 text-gov-navy font-bold uppercase tracking-wider text-[10px]">
-                  <th className="px-3 py-3">Project Title & Originating Challenge</th>
-                  <th className="px-3 py-3 whitespace-nowrap">Status</th>
-                  <th className="px-3 py-3 whitespace-nowrap">Faculty Mentor</th>
-                  <th className="px-3 py-3 whitespace-nowrap">Multidisciplinary Team</th>
-                  <th className="px-3 py-3 whitespace-nowrap">Timeline & Budget</th>
-                  <th className="px-3 py-3 text-right whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gov-border">
-                {projects.map((p) => {
-                  const statusInfo = STATUS_CONFIG[p.status] || { label: p.status, color: 'bg-gray-100 text-gray-700' };
-                  return (
-                    <tr key={p._id} className="hover:bg-gov-sand-50 transition-colors">
-                      {/* Title & Challenge */}
-                      <td className="px-3 py-3 min-w-[240px]">
-                        <div className="font-bold text-gov-navy text-sm leading-snug">{p.title}</div>
-                        <div className="flex items-center space-x-2 text-[11px] text-gov-text-muted mt-1">
-                          {p.challengeId ? (
-                            <span className="font-mono text-gov-maroon font-bold bg-gov-sand-50 px-1 py-0.2 rounded-xs border border-gov-border">
-                              Challenge [{p.challengeId.code}]: {p.challengeId.category}
-                            </span>
-                          ) : (
-                            <span>Challenge unlinked</span>
-                          )}
-                        </div>
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        <span className={`text-[10px] uppercase font-semibold px-2 py-0.5 rounded-xs border ${statusInfo.color}`}>
-                          {statusInfo.label}
-                        </span>
-                      </td>
-
-                      {/* Faculty Mentor */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {p.mentor ? (
-                          <div className="text-[11px]">
-                            <div className="font-bold text-gov-navy">{p.mentor.name}</div>
-                            <div className="text-gray-500 text-[10px]">{p.mentor.department}</div>
-                          </div>
-                        ) : (
-                          <span className="text-amber-700 italic text-[11px]">Pending Mentor</span>
-                        )}
-                      </td>
-
-                      {/* Team */}
-                      <td className="px-3 py-3 whitespace-nowrap">
-                        {p.team ? (
-                          <div className="text-[11px]">
-                            <div className="font-bold text-indigo-900 flex items-center space-x-1">
-                              <Users2 className="w-3.5 h-3.5 text-indigo-600" />
-                              <span>{p.team.name}</span>
-                            </div>
-                            <div className="text-gray-500 text-[10px]">
-                              {p.team.members?.length || 0} student innovator(s)
-                            </div>
-                          </div>
-                        ) : (
-                          <span className="text-gray-400 italic text-[11px]">Team not formed</span>
-                        )}
-                      </td>
-
-                      {/* Timeline & Budget */}
-                      <td className="px-3 py-3 whitespace-nowrap text-[11px] text-gov-text-secondary">
-                        <div>{p.timeline}</div>
-                        <div className="font-bold text-emerald-800">
-                          ₹{(p.budget?.estimatedAmount || 0).toLocaleString('en-IN')}
-                        </div>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="px-3 py-3 whitespace-nowrap text-right space-x-1">
-                        <Link to={`/projects/${p._id}`}>
-                          <Button
-                            variant="subtle"
-                            size="sm"
-                            icon={Eye}
-                            title="Open Project Lifecycle Workspace"
-                          >
-                            Workspace
-                          </Button>
-                        </Link>
-
-                        {p.status === 'PROJECT_CREATED' || p.status === 'TEAM_FORMED' ? (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => {
-                              setProposalProject(p);
-                              setMethodology('Rapid prototyping with iterative laboratory analysis and field testing');
-                              setExpectedImpact('Civic infrastructure relief and open-source municipal hardware specification');
-                            }}
-                            icon={Send}
-                            className="bg-gov-maroon hover:bg-gov-maroon-dark text-white"
-                          >
-                            Submit Proposal
-                          </Button>
-                        ) : (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-xs border border-emerald-200">
-                            Proposal {p.proposal?.approvalStatus || 'SUBMITTED'}
-                          </span>
-                        )}
-                      </td>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <h2 className="text-sm font-bold text-gov-navy uppercase tracking-wider">
+              Active Projects ({activeProjects.length})
+            </h2>
+            {activeProjects.length === 0 ? (
+              <Card accent="none" className="py-8 text-center text-xs text-gov-text-muted">
+                No active projects. Completed work appears in the section below.
+              </Card>
+            ) : (
+              <div className="overflow-x-auto border border-gov-border rounded-xs bg-white shadow-xs">
+                <table className="w-full text-left text-xs divide-y divide-gov-border">
+                  <thead>
+                    <tr className="bg-gov-sand-100 text-gov-navy font-bold uppercase tracking-wider text-[10px]">
+                      <th className="px-3 py-3">Project Title & Originating Challenge</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Status</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Faculty Mentor</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Multidisciplinary Team</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Timeline & Budget</th>
+                      <th className="px-3 py-3 text-right whitespace-nowrap">Actions</th>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  </thead>
+                  <tbody className="divide-y divide-gov-border">{renderProjectRows(activeProjects)}</tbody>
+                </table>
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <h2 className="text-sm font-bold text-gov-navy uppercase tracking-wider">
+              Completed Projects ({completedProjects.length})
+            </h2>
+            {completedProjects.length === 0 ? (
+              <Card accent="none" className="py-8 text-center text-xs text-gov-text-muted">
+                No completed projects yet.
+              </Card>
+            ) : (
+              <div className="overflow-x-auto border border-gov-border rounded-xs bg-white shadow-xs">
+                <table className="w-full text-left text-xs divide-y divide-gov-border">
+                  <thead>
+                    <tr className="bg-gov-sand-100 text-gov-navy font-bold uppercase tracking-wider text-[10px]">
+                      <th className="px-3 py-3">Project Title & Originating Challenge</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Status</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Faculty Mentor</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Multidisciplinary Team</th>
+                      <th className="px-3 py-3 whitespace-nowrap">Timeline & Budget</th>
+                      <th className="px-3 py-3 text-right whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gov-border">{renderProjectRows(completedProjects)}</tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

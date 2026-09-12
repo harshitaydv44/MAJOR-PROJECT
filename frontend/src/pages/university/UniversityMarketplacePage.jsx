@@ -3,6 +3,7 @@ import { universityService } from '../../services/universityService';
 import Card from '../../components/common/Card';
 import Button from '../../components/common/Button';
 import Badge from '../../components/common/Badge';
+import StatusBadge from '../../components/common/StatusBadge';
 import LoadingState from '../../components/common/LoadingState';
 import ErrorState from '../../components/common/ErrorState';
 import {
@@ -38,6 +39,7 @@ const UniversityMarketplacePage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [actionSuccess, setActionSuccess] = useState('');
   const [error, setError] = useState('');
+  const [modalError, setModalError] = useState('');
 
   const fetchMarketplace = async () => {
     setLoading(true);
@@ -63,15 +65,17 @@ const UniversityMarketplacePage = () => {
     if (!interestChallenge) return;
 
     setSubmitting(true);
+    setModalError('');
     try {
       await universityService.expressInterest(interestChallenge._id, interestNote);
       setActionSuccess(`Expression of interest registered for [${interestChallenge.code}]!`);
       setInterestChallenge(null);
       setInterestNote('');
+      setModalError('');
       setTimeout(() => setActionSuccess(''), 4000);
       fetchMarketplace();
     } catch (err) {
-      alert(err.message || 'Failed to register interest');
+      setModalError(err.message || 'Failed to register interest. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -82,6 +86,7 @@ const UniversityMarketplacePage = () => {
     if (!acceptChallenge) return;
 
     setSubmitting(true);
+    setModalError('');
     try {
       await universityService.acceptChallenge(acceptChallenge._id, {
         facultyLeadName: facultyName,
@@ -89,15 +94,16 @@ const UniversityMarketplacePage = () => {
         comment: acceptComment
       });
 
-      setActionSuccess(`Challenge [${acceptChallenge.code}] successfully adopted! Redirecting to Assigned Challenges...`);
+      setActionSuccess(`Challenge [${acceptChallenge.code}] successfully adopted! It now appears under Assigned Challenges.`);
       setAcceptChallenge(null);
       setFacultyName('');
       setFacultyDept('');
       setAcceptComment('');
-      setTimeout(() => setActionSuccess(''), 4000);
+      setModalError('');
+      setTimeout(() => setActionSuccess(''), 5000);
       fetchMarketplace();
     } catch (err) {
-      alert(err.message || 'Failed to adopt challenge');
+      setModalError(err.message || 'Failed to adopt challenge. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -215,11 +221,17 @@ const UniversityMarketplacePage = () => {
                     {/* AI Recommended Expertise */}
                     <td className="px-3 py-3">
                       <div className="flex flex-col gap-1">
-                        {c.aiRecommendedUniversities && c.aiRecommendedUniversities.length > 0 && (
+                        {c.aiRecommendedUniversities && c.aiRecommendedUniversities.length > 0 ? (
                           <div className="flex items-center space-x-1 mb-0.5">
                             <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
                               <Sparkles className="w-2.5 h-2.5 mr-1 text-amber-700" />
                               {c.aiRecommendedUniversities[0].percentage}% AI Fit
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-1 mb-0.5">
+                            <span className="text-[10px] text-gov-text-muted italic">
+                              Not yet analyzed
                             </span>
                           </div>
                         )}
@@ -334,7 +346,54 @@ const UniversityMarketplacePage = () => {
                 </div>
               )}
 
-              {viewingChallenge.aiRecommendedUniversities && viewingChallenge.aiRecommendedUniversities.length > 0 && (
+              {/* AI Structured Summary */}
+              {viewingChallenge.aiSummary?.problem ? (
+                <div className="p-3 bg-gov-sand-50 rounded-xs border border-gov-border space-y-1">
+                  <span className="font-bold text-gov-navy block uppercase text-[10px] tracking-wider">
+                    AI Problem Extraction & Target Outcome
+                  </span>
+                  <p className="text-[11px] text-gov-text-secondary">
+                    <strong>Extracted Problem:</strong> {viewingChallenge.aiSummary.problem}
+                  </p>
+                  {viewingChallenge.aiSummary.expectedOutcome && (
+                    <p className="text-[11px] text-gov-text-secondary">
+                      <strong>Expected Outcome:</strong> {viewingChallenge.aiSummary.expectedOutcome}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2 bg-gov-sand-50/50 rounded-xs border border-dashed border-gov-border text-[11px] text-gov-text-muted italic">
+                  AI Problem Summary: Not yet analyzed
+                </div>
+              )}
+
+              {/* AI Priority Recommendation */}
+              {viewingChallenge.aiPriority?.recommendedPriority ? (
+                <div className="p-2.5 bg-amber-50/60 rounded-xs border border-amber-200 text-xs space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-amber-900 uppercase text-[10px]">
+                      AI Priority Recommendation: {viewingChallenge.aiPriority.recommendedPriority}
+                    </span>
+                    {viewingChallenge.aiPriority.confidence > 0 && (
+                      <span className="text-[10px] text-amber-700 font-medium">
+                        {Math.round(viewingChallenge.aiPriority.confidence * 100)}% Confidence
+                      </span>
+                    )}
+                  </div>
+                  {viewingChallenge.aiPriority.reasoning && (
+                    <p className="text-amber-800 text-[11px] leading-relaxed">
+                      {viewingChallenge.aiPriority.reasoning}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div className="p-2 bg-gov-sand-50/50 rounded-xs border border-dashed border-gov-border text-[11px] text-gov-text-muted italic">
+                  AI Priority Assessment: Not yet analyzed
+                </div>
+              )}
+
+              {/* AI Institutional Match */}
+              {viewingChallenge.aiRecommendedUniversities && viewingChallenge.aiRecommendedUniversities.length > 0 ? (
                 <div className="p-3 bg-indigo-50/70 border border-indigo-200 rounded-xs space-y-1.5 font-serif">
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-indigo-950 uppercase text-[10px] tracking-wider flex items-center space-x-1">
@@ -355,6 +414,10 @@ const UniversityMarketplacePage = () => {
                       ))}
                     </ul>
                   )}
+                </div>
+              ) : (
+                <div className="p-2 bg-gov-sand-50/50 rounded-xs border border-dashed border-gov-border text-[11px] text-gov-text-muted italic">
+                  Institutional AI Recommendation: Not yet analyzed
                 </div>
               )}
 
@@ -401,7 +464,7 @@ const UniversityMarketplacePage = () => {
                 <span>Express Institutional Interest</span>
               </h3>
               <button
-                onClick={() => setInterestChallenge(null)}
+                onClick={() => { setInterestChallenge(null); setModalError(''); }}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
                 <X className="w-4 h-4" />
@@ -416,6 +479,13 @@ const UniversityMarketplacePage = () => {
                 District: {interestChallenge.district} &bull; Category: {interestChallenge.category}
               </div>
             </div>
+
+            {modalError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-xs flex items-start space-x-2">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <span>{modalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleExpressInterest} className="space-y-3 text-xs">
               <div>
@@ -435,7 +505,7 @@ const UniversityMarketplacePage = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setInterestChallenge(null)}
+                  onClick={() => { setInterestChallenge(null); setModalError(''); }}
                   disabled={submitting}
                 >
                   Cancel
@@ -465,7 +535,7 @@ const UniversityMarketplacePage = () => {
                 <span>Adopt Civic Challenge for Academic Prototyping</span>
               </h3>
               <button
-                onClick={() => setAcceptChallenge(null)}
+                onClick={() => { setAcceptChallenge(null); setModalError(''); }}
                 className="text-gray-400 hover:text-gray-600 p-1"
               >
                 <X className="w-4 h-4" />
@@ -480,6 +550,13 @@ const UniversityMarketplacePage = () => {
                 District: {acceptChallenge.district} &bull; Category: {acceptChallenge.category}
               </div>
             </div>
+
+            {modalError && (
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-800 text-[11px] rounded-xs flex items-start space-x-2">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-600 flex-shrink-0 mt-0.5" />
+                <span>{modalError}</span>
+              </div>
+            )}
 
             <form onSubmit={handleAcceptChallenge} className="space-y-3 text-xs">
               <div>
@@ -531,7 +608,7 @@ const UniversityMarketplacePage = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setAcceptChallenge(null)}
+                  onClick={() => { setAcceptChallenge(null); setModalError(''); }}
                   disabled={submitting}
                 >
                   Cancel

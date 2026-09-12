@@ -1,15 +1,15 @@
-const AI_BASE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8000';
 const TIMEOUT_MS = 6000; // 6 seconds timeout
 
 /**
  * Helper to execute HTTP requests to the FastAPI microservice with timeout
  */
 const postJSON = async (endpoint, payload) => {
+  const baseUrl = process.env.AI_SERVICE_URL || 'http://localhost:8000';
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
 
   try {
-    const response = await fetch(`${AI_BASE_URL}${endpoint}`, {
+    const response = await fetch(`${baseUrl}${endpoint}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -40,13 +40,7 @@ const aiService = {
       return await postJSON('/ai/classify', { title, description });
     } catch (error) {
       console.warn(`[AI Service Notice] Classification unavailable: ${error.message}`);
-      return {
-        category: 'Other',
-        subcategory: 'unclassified',
-        confidence: 0.0,
-        requiresHumanReview: true,
-        explanation: 'AI Service currently offline or timed out. Human review mandated.'
-      };
+      return null;
     }
   },
 
@@ -64,14 +58,7 @@ const aiService = {
       });
     } catch (error) {
       console.warn(`[AI Service Notice] Priority estimation unavailable: ${error.message}`);
-      return {
-        recommendation: (urgency === 'immediate' || severity === 'critical') ? 'CRITICAL' : 'MEDIUM',
-        confidence: 0.0,
-        score: 0.0,
-        reasoning: 'AI service offline. Default fallback based on submitter flags.',
-        isRecommendation: true,
-        disclaimer: 'Fallback priority estimate. Requires administrative confirmation.'
-      };
+      return null;
     }
   },
 
@@ -80,6 +67,16 @@ const aiService = {
    */
   checkDuplicates: async ({ title, description, existingChallenges = [], threshold = 0.70 }) => {
     try {
+      if (!existingChallenges || existingChallenges.length === 0) {
+        return {
+          possibleDuplicate: false,
+          similarityScore: 0.0,
+          threshold,
+          matchingChallengeIds: [],
+          topMatches: [],
+          engine: 'None'
+        };
+      }
       const payload = {
         title,
         description,
@@ -94,12 +91,7 @@ const aiService = {
       return await postJSON('/ai/duplicate-check', payload);
     } catch (error) {
       console.warn(`[AI Service Notice] Duplicate check unavailable: ${error.message}`);
-      return {
-        possibleDuplicate: false,
-        similarityScore: 0.0,
-        matchingChallengeIds: [],
-        topMatches: []
-      };
+      return null;
     }
   },
 
@@ -116,25 +108,16 @@ const aiService = {
       });
     } catch (error) {
       console.warn(`[AI Service Notice] Summarization unavailable: ${error.message}`);
-      return {
-        summary: {
-          problem: title,
-          affectedGroup: 'Citizens in municipal reporting zone',
-          location: `${location || ''} ${district || ''}`.trim() || 'Delhi',
-          expectedOutcome: 'Engineering prototype or municipal corrective action'
-        },
-        rawSummary: `${title}. Reported at ${location || district || 'Delhi'}.`
-      };
+      return null;
     }
   },
 
   /**
    * Comprehensive analysis running all 4 models in parallel with safe degradation
    */
-  analyzeChallenge: async (challengeData, existingChallenges = []) => {
-    const { title, description, urgency, severity, impact, location, district } = challengeData;
-
+  analyzeChallenge: async (challengeData = {}, existingChallenges = []) => {
     try {
+      const { title, description, urgency, severity, impact, location, district } = challengeData || {};
       const [classification, priority, duplicates, summaryRes] = await Promise.all([
         aiService.classify(title, description),
         aiService.recommendPriority({
@@ -159,43 +142,29 @@ const aiService = {
       ]);
 
       return {
-        aiClassification: classification,
-        aiPriority: {
+        aiClassification: classification || null,
+        aiPriority: priority ? {
           recommendedPriority: priority.recommendation,
           confidence: priority.confidence,
           reasoning: priority.reasoning
-        },
-        aiDuplicateScore: duplicates.similarityScore || 0,
-        aiDuplicates: (duplicates.topMatches || []).map((m) => ({
+        } : null,
+        aiDuplicateScore: duplicates ? (duplicates.similarityScore ?? 0) : null,
+        aiDuplicates: (duplicates?.topMatches || []).map((m) => ({
           challengeId: m.id,
           code: m.code,
           title: m.title,
           similarityScore: m.similarityScore
         })),
-        aiSummary: summaryRes.summary || {}
+        aiSummary: summaryRes?.summary || null
       };
     } catch (err) {
       console.error('[AI Service Error] Batch analysis failed:', err.message);
       return {
-        aiClassification: {
-          category: challengeData.category || 'Other',
-          confidence: 0.0,
-          requiresHumanReview: true,
-          explanation: 'AI Service analysis bypassed due to timeout.'
-        },
-        aiPriority: {
-          recommendedPriority: 'MEDIUM',
-          confidence: 0.0,
-          reasoning: 'AI Service unavailable.'
-        },
-        aiDuplicateScore: 0,
+        aiClassification: null,
+        aiPriority: null,
+        aiDuplicateScore: null,
         aiDuplicates: [],
-        aiSummary: {
-          problem: title,
-          affectedGroup: 'Citizens and commuters',
-          location: district || 'Delhi',
-          expectedOutcome: 'Technological prototype'
-        }
+        aiSummary: null
       };
     }
   },
@@ -235,17 +204,7 @@ const aiService = {
       return res.recommendations || [];
     } catch (error) {
       console.warn(`[AI Service Notice] University matching offline: ${error.message}`);
-      return universities.map((u, idx) => ({
-        universityId: u.user || u._id,
-        universityName: u.name,
-        score: Math.max(0.65, 0.90 - idx * 0.08),
-        percentage: Math.round(Math.max(65, 90 - idx * 8)),
-        matchingReasons: [
-          `Recognized municipal research capabilities in ${u.district || 'Delhi'}.`,
-          `Established faculties available in ${u.departments?.[0] || 'Engineering and Applied Sciences'}.`
-        ],
-        explainableSummary: 'Recommended based on expertise, facilities and project requirements.'
-      }));
+      return null;
     }
   },
 
