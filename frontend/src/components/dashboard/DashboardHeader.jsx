@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import NotificationDropdown from '../common/NotificationDropdown';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import SamadhanSetuLogo from '../common/SamadhanSetuLogo';
 import { Bell, LogOut, User, Menu, X, CheckCircle, ExternalLink } from 'lucide-react';
 
 const DashboardHeader = ({ onToggleSidebar }) => {
@@ -69,23 +70,11 @@ const DashboardHeader = ({ onToggleSidebar }) => {
             <Menu className="w-5 h-5" />
           </button>
 
-          <Link to="/select-role" className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 rounded-sm bg-gov-maroon flex items-center justify-center text-white border border-amber-600">
-              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-              </svg>
-            </div>
-            <div>
-              <div className="font-serif font-bold text-gov-maroon text-sm sm:text-base leading-tight">
-                {PORTAL_TITLE}
-              </div>
-              <div className="text-[10px] font-serif text-gov-navy font-semibold">
-                Citizen & Community Grievance Redressal / Innovation Portal
-              </div>
-            </div>
-          </Link>
+          <SamadhanSetuLogo
+            size="sm"
+            subtitle="Citizen Problem-to-Solution Gateway"
+            to="/select-role"
+          />
         </div>
 
         {/* Right: Notifications, Profile, Logout */}

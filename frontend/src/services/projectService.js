@@ -2,8 +2,13 @@ import api from './api';
 
 export const projectService = {
   // Projects
-  getProjects: async () => {
-    const response = await api.get('/projects');
+  getProjects: async (params = {}) => {
+    const response = await api.get('/projects', { params });
+    return response.data;
+  },
+
+  getStudentProjects: async (params = {}) => {
+    const response = await api.get('/student/projects', { params });
     return response.data;
   },
 
@@ -188,5 +193,146 @@ export const projectService = {
       industryId
     });
     return response.data;
+  },
+
+  requestIndustryCollaboration: async (id, collaborationData) => {
+    const response = await api.post(`/projects/${id}/request-industry`, collaborationData);
+    return response.data;
+  },
+
+  // Proposal Draft
+  saveProposalDraft: async (id, proposalData) => {
+    const response = await api.post(`/projects/${id}/proposal`, { ...proposalData, isDraft: true });
+    return response.data;
+  },
+
+  // Mentorship Reviews
+  requestMentorReview: async (id, data) => {
+    const response = await api.post(`/projects/${id}/mentor/request-review`, data);
+    return response.data;
+  },
+
+  submitMentorFeedback: async (id, data) => {
+    const response = await api.post(`/projects/${id}/mentor/feedback`, data);
+    return response.data;
+  },
+
+  // Team Member Management & Invitations
+  inviteTeamMember: async (teamId, data) => {
+    const response = await api.post(`/teams/${teamId}/invite`, data);
+    return response.data;
+  },
+
+  respondTeamInvite: async (teamId, data) => {
+    const response = await api.post(`/teams/${teamId}/respond-invite`, data);
+    return response.data;
+  },
+
+  updateTeamMember: async (teamId, memberId, data) => {
+    const response = await api.put(`/teams/${teamId}/members/${memberId}`, data);
+    return response.data;
+  },
+
+  removeTeamMember: async (teamId, memberId) => {
+    const response = await api.delete(`/teams/${teamId}/members/${memberId}`);
+    return response.data;
+  },
+
+  initStudentProject: async () => {
+    const response = await api.post('/student/projects/init');
+    return response.data;
+  },
+
+  // Student Milestones & Deliverables
+  getStudentMilestones: async () => {
+    const response = await api.get('/student/milestones');
+    return response.data;
+  },
+
+  updateStudentMilestoneProgress: async (milestoneId, data) => {
+    const response = await api.put(`/student/milestones/${milestoneId}/progress`, data);
+    return response.data;
+  },
+
+  submitStudentMilestoneReview: async (milestoneId, data) => {
+    const response = await api.post(`/student/milestones/${milestoneId}/submit-review`, data);
+    return response.data;
+  },
+
+  submitStudentDeliverable: async (milestoneId, formData) => {
+    const response = await api.post(`/student/milestones/${milestoneId}/deliverables`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  // Student Documents (Isolated Project Scope)
+  getStudentDocuments: async (params) => {
+    const response = await api.get('/student/documents', { params });
+    return response.data;
+  },
+
+  uploadStudentDocument: async (formData) => {
+    const response = await api.post('/student/documents', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  // Prototype Tracking
+  updateProjectPrototype: async (id, data) => {
+    const response = await api.put(`/projects/${id}/prototype`, data);
+    return response.data;
+  },
+
+  // Empirical Test Trials & Evidence
+  getProjectTests: async (id) => {
+    const response = await api.get(`/projects/${id}/tests`);
+    return response.data;
+  },
+
+  createProjectTest: async (id, data) => {
+    const response = await api.post(`/projects/${id}/tests`, data);
+    return response.data;
+  },
+
+  uploadTestEvidence: async (id, testId, formData) => {
+    const response = await api.post(`/projects/${id}/tests/${testId}/evidence`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
+  reviewProjectTest: async (id, testId, data) => {
+    const response = await api.post(`/projects/${id}/tests/${testId}/review`, data);
+    return response.data;
+  },
+
+  // Student Industry Collaboration (Task S9)
+  getStudentIndustryPartners: async (params) => {
+    const response = await api.get('/student/industry', { params });
+    return response.data;
+  },
+
+  requestStudentIndustryCollaboration: async (data) => {
+    const response = await api.post('/student/industry/collaborate', data);
+    return response.data;
+  },
+
+  getStudentPartnerships: async () => {
+    const response = await api.get('/student/industry/partnerships');
+    return response.data;
+  },
+
+  getProjectPartnerships: async (projectId) => {
+    const response = await api.get(`/projects/${projectId}/partnerships`);
+    return response.data;
+  },
+
+  updatePartnershipStatus: async (projectId, partnershipId, data) => {
+    const response = await api.put(`/projects/${projectId}/partnerships/${partnershipId}/status`, data);
+    return response.data;
   }
 };
+
+export default projectService;

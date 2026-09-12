@@ -15,11 +15,26 @@ const getMyNotifications = async (req, res, next) => {
       filter.$or = [{ isRead: false }, { read: false }];
     }
 
+    const Project = require('../models/Project');
     const notifications = await Notification.find(filter)
       .populate('sender', 'name organization role')
       .populate('challenge', 'code title status category district')
+      .populate('project', 'title code stage progress')
       .sort({ createdAt: -1 })
-      .limit(50);
+      .limit(100);
+
+    const enrichedNotifications = await Promise.all(
+      notifications.map(async (n) => {
+        const notifObj = n.toObject();
+        if (!notifObj.project && notifObj.relatedEntity === 'Project' && notifObj.relatedEntityId) {
+          try {
+            const p = await Project.findById(notifObj.relatedEntityId).select('title code stage progress');
+            if (p) notifObj.project = p;
+          } catch (_) {}
+        }
+        return notifObj;
+      })
+    );
 
     const unreadCount = await Notification.countDocuments({
       recipient: req.user.id,
@@ -28,8 +43,8 @@ const getMyNotifications = async (req, res, next) => {
 
     return successResponse(res, 'Notifications retrieved successfully', {
       unreadCount,
-      count: notifications.length,
-      notifications
+      count: enrichedNotifications.length,
+      notifications: enrichedNotifications
     });
   } catch (error) {
     next(error);

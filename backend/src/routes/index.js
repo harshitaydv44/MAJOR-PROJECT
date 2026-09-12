@@ -26,6 +26,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/universities', universityRoutes);
 router.use('/projects', projectRoutes);
 router.use('/faculty', facultyRoutes);
+router.use('/student', studentRoutes);
 router.use('/students', studentRoutes);
 router.use('/teams', teamRoutes);
 router.use('/industry', industryRoutes);

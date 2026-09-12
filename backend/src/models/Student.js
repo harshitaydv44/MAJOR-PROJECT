@@ -45,6 +45,40 @@ const studentSchema = new mongoose.Schema(
         trim: true
       }
     ],
+    areasOfInterest: [
+      {
+        type: String,
+        trim: true
+      }
+    ],
+    phone: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    studentId: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    course: {
+      type: String,
+      trim: true,
+      default: 'B.Tech'
+    },
+    profileImage: {
+      type: String,
+      default: ''
+    },
+    bio: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    innovationCredits: {
+      type: Number,
+      default: 0
+    },
     assignedTeam: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Team'

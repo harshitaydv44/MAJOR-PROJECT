@@ -39,7 +39,7 @@ const AdminUniversitiesPage = () => {
             Partner University Institutions ({universities.length})
           </h1>
           <p className="text-xs text-gov-text-secondary mt-1">
-            Higher education institutes and technical universities participating in the Delhi Societal Innovation Network.
+            Higher education institutes and technical universities participating in the Samadhan Setu Innovation Network.
           </p>
         </div>
 

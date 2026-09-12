@@ -1,6 +1,6 @@
-export const PORTAL_TITLE = "Delhi Societal Innovation & Collaboration Portal";
-export const PORTAL_SUBTITLE = "Connecting community challenges with universities, industry and innovation.";
-export const GOVT_NAME = "Government of NCT of Delhi - State Innovation Council";
+export const PORTAL_TITLE = "Samadhan Setu";
+export const PORTAL_SUBTITLE = "Bridging societal challenges with universities, student innovators, and industry solutions.";
+export const GOVT_NAME = "Samadhan Setu — National & State Innovation Network";
 
 export const DELHI_DISTRICTS = [
   "Central Delhi",
