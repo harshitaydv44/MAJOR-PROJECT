@@ -7,6 +7,7 @@ const AuditLog = require('../models/AuditLog');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Industry = require('../models/Industry');
+const Partnership = require('../models/Partnership');
 const aiService = require('../services/aiService');
 const { dispatchNotification } = require('../services/notificationDispatcher');
 const { sendRealtimeProjectMessage, sendRealtimeProjectUpdate } = require('../services/socketService');
@@ -89,11 +90,42 @@ const checkProjectAccess = async (project, user, allowedRoles = []) => {
   }
 
   if (user.role === 'STUDENT') {
-    const student = await Student.findOne({ user: userId });
-    if (!student || !project.team) return false;
-    const team = await Team.findById(project.team);
-    if (!team) return false;
-    return team.members.some((m) => m.student?.toString() === student._id.toString());
+    let student = await Student.findOne({ user: userId });
+    if (!student) {
+      student = await Student.findOne({ email: user.email?.toLowerCase() });
+    }
+    const studentIdStr = student ? student._id.toString() : null;
+    const userIdStr = userId.toString();
+
+    // 1. Check direct project team
+    let team = null;
+    if (project.team) {
+      team = project.team._id ? project.team : await Team.findById(project.team);
+    }
+    if (!team) {
+      team = await Team.findOne({ project: project._id });
+    }
+
+    if (team && Array.isArray(team.members)) {
+      const isMember = team.members.some((m) => {
+        const mStudentId = (m.student?._id || m.student)?.toString();
+        return mStudentId === studentIdStr || mStudentId === userIdStr;
+      });
+      if (isMember) return true;
+    }
+
+    // 2. Check milestone assigned members
+    if (project.milestones && Array.isArray(project.milestones)) {
+      const isMilestoneAssigned = project.milestones.some((m) =>
+        (m.assignedMembers || []).some((am) => {
+          const amId = (am._id || am).toString();
+          return amId === userIdStr || (studentIdStr && amId === studentIdStr);
+        })
+      );
+      if (isMilestoneAssigned) return true;
+    }
+
+    return false;
   }
 
   if (user.role === 'INDUSTRY') {
@@ -117,6 +149,46 @@ const checkProjectAccess = async (project, user, allowedRoles = []) => {
 };
 
 /**
+ * Retrieve user IDs of all students associated with a project (team members, leader, milestone assignees)
+ */
+const getProjectStudentUserIds = async (project) => {
+  const userIds = new Set();
+  try {
+    let team = null;
+    if (project.team) {
+      team = await Team.findById(project.team._id || project.team).populate('members.student');
+    }
+    if (!team) {
+      team = await Team.findOne({ project: project._id }).populate('members.student');
+    }
+    if (team && Array.isArray(team.members)) {
+      for (const m of team.members) {
+        if (m.student?.user) {
+          userIds.add(m.student.user.toString());
+        } else if (m.student?.email) {
+          const u = await User.findOne({ email: m.student.email.toLowerCase() });
+          if (u) userIds.add(u._id.toString());
+        }
+      }
+    }
+    if (Array.isArray(project.milestones)) {
+      for (const m of project.milestones) {
+        for (const am of m.assignedMembers || []) {
+          const amId = (am._id || am).toString();
+          const u = await User.findById(amId);
+          if (u && u.role === 'STUDENT') {
+            userIds.add(u._id.toString());
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error resolving student user IDs for project:', err.message);
+  }
+  return Array.from(userIds);
+};
+
+/**
  * Get projects based on stakeholder role
  * GET /api/projects
  */
@@ -135,11 +207,27 @@ const getProjects = async (req, res, next) => {
         return successResponse(res, 'No assigned projects found', { projects: [] });
       }
     } else if (role === 'STUDENT') {
-      const student = await Student.findOne({ user: req.user.id });
-      if (student) {
-        const teams = await Team.find({ 'members.student': student._id });
-        const teamIds = teams.map((t) => t._id);
-        filter.team = { $in: teamIds };
+      let student = await Student.findOne({ user: req.user.id });
+      if (!student) {
+        student = await Student.findOne({ email: req.user.email?.toLowerCase() });
+      }
+      const studentId = student ? student._id : null;
+      const memberCond = [];
+      if (studentId) memberCond.push({ 'members.student': studentId });
+      memberCond.push({ 'members.student': req.user.id });
+
+      const teams = await Team.find({ $or: memberCond });
+      const teamIds = teams.map((t) => t._id);
+      const teamProjIds = teams.filter((t) => t.project).map((t) => t.project);
+
+      const orConds = [];
+      if (teamIds.length > 0) orConds.push({ team: { $in: teamIds } });
+      if (teamProjIds.length > 0) orConds.push({ _id: { $in: teamProjIds } });
+      orConds.push({ 'milestones.assignedMembers': req.user.id });
+      if (studentId) orConds.push({ 'milestones.assignedMembers': studentId });
+
+      if (orConds.length > 0) {
+        filter.$or = orConds;
       } else {
         return successResponse(res, 'No assigned student projects found', { projects: [] });
       }
@@ -441,8 +529,31 @@ const transitionStage = async (req, res, next) => {
         message: `Project stage transitioned to "${targetStage}".`,
         type: notifType,
         relatedEntity: 'Project',
-        relatedEntityId: project._id
+        relatedEntityId: project._id,
+        project: project._id
       });
+    }
+
+    // 3. Notify Student Team Members
+    try {
+      const studentUserIds = await getProjectStudentUserIds(project);
+      for (const sId of studentUserIds) {
+        if (sId !== req.user.id.toString()) {
+          await dispatchNotification({
+            recipient: sId,
+            sender: req.user.id,
+            senderName: req.user.name,
+            title: `Project Stage: ${targetStage}`,
+            message: `Project "${project.title}" has advanced to the "${targetStage}" stage.`,
+            type: 'PROJECT_STAGE_CHANGED',
+            relatedEntity: 'Project',
+            relatedEntityId: project._id,
+            project: project._id
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.warn('[Stage Notification Warning]', notifErr.message);
     }
 
     return successResponse(res, `Project successfully transitioned to ${targetStage}`, { project });
@@ -535,6 +646,16 @@ const updateMilestone = async (req, res, next) => {
     if (dueDate) milestone.dueDate = dueDate;
     if (deliverables && Array.isArray(deliverables)) milestone.deliverables = deliverables;
 
+    // Permission Enforcement: Students cannot unilaterally approve their own milestones to COMPLETED
+    if (req.user.role === 'STUDENT' && (status === 'COMPLETED' || Number(progress) === 100)) {
+      return errorResponse(
+        res,
+        'Students cannot approve their own milestones. You may submit deliverables and update progress up to 99% or request faculty review.',
+        null,
+        403
+      );
+    }
+
     if (status) {
       milestone.status = status;
       if (status === 'COMPLETED') {
@@ -575,8 +696,30 @@ const updateMilestone = async (req, res, next) => {
           message: `Milestone "${milestone.title}" in project "${project.title}" was completed.`,
           type: 'MILESTONE_COMPLETED',
           relatedEntity: 'Project',
-          relatedEntityId: project._id
+          relatedEntityId: project._id,
+          project: project._id
         });
+      }
+
+      try {
+        const studentUserIds = await getProjectStudentUserIds(project);
+        for (const sId of studentUserIds) {
+          if (sId !== req.user.id.toString()) {
+            await dispatchNotification({
+              recipient: sId,
+              sender: req.user.id,
+              senderName: req.user.name,
+              title: 'Milestone & Deliverables Approved',
+              message: `Milestone "${milestone.title}" in project "${project.title}" has been verified and completed.`,
+              type: 'DELIVERABLE_APPROVED',
+              relatedEntity: 'Milestone',
+              relatedEntityId: milestone._id,
+              project: project._id
+            });
+          }
+        }
+      } catch (notifErr) {
+        console.warn('[Milestone Notification Warning]', notifErr.message);
       }
     } else if (status === 'DELAYED') {
       if (project.universityId) {
@@ -842,14 +985,62 @@ const addProjectComment = async (req, res, next) => {
       userName: req.user.name || 'Collaborator',
       userRole: req.user.role,
       comment: comment.trim(),
+      projectId: project._id,
       createdAt: new Date()
     };
 
     project.comments.push(commentObj);
     await project.save();
 
-    // Broadcast in real-time to project room via Socket.IO
+    // 1. Broadcast in real-time to project room via Socket.IO
     sendRealtimeProjectMessage(id, commentObj);
+
+    // 2. Dispatch notifications to all other stakeholders
+    try {
+      const stakeholderUserIds = new Set();
+
+      // Team student members
+      const studentIds = await getProjectStudentUserIds(project);
+      studentIds.forEach((sid) => stakeholderUserIds.add(sid));
+
+      // Faculty mentor
+      if (project.mentor) {
+        const faculty = await Faculty.findById(project.mentor._id || project.mentor);
+        if (faculty?.user) stakeholderUserIds.add(faculty.user.toString());
+      }
+
+      // University Lead
+      if (project.universityId) {
+        stakeholderUserIds.add((project.universityId._id || project.universityId).toString());
+      }
+
+      // Industry Partners
+      if (Array.isArray(project.industryPartners)) {
+        project.industryPartners.forEach((ip) => {
+          stakeholderUserIds.add((ip._id || ip).toString());
+        });
+      }
+
+      // Exclude author
+      stakeholderUserIds.delete(req.user.id.toString());
+
+      const snippet = comment.trim().length > 60 ? `${comment.trim().slice(0, 60)}...` : comment.trim();
+      for (const recipientId of stakeholderUserIds) {
+        await dispatchNotification({
+          recipient: recipientId,
+          sender: req.user.id,
+          senderName: req.user.name || 'Collaborator',
+          type: 'PROJECT_DISCUSSION',
+          title: `Discussion in ${project.title}`,
+          message: `${req.user.name || 'Stakeholder'} (${req.user.role}): "${snippet}"`,
+          relatedEntity: 'Project',
+          relatedEntityId: project._id,
+          project: project._id
+        });
+      }
+    } catch (notifErr) {
+      console.warn('[Discussion Notification Warning]', notifErr.message);
+    }
 
     return successResponse(res, 'Comment posted successfully', { project, comment: commentObj }, 201);
   } catch (error) {
@@ -1018,7 +1209,8 @@ const submitProposal = async (req, res, next) => {
       methodology,
       technology,
       timeline,
-      expectedImpact
+      expectedImpact,
+      isDraft
     } = req.body;
 
     const project = await Project.findById(id).populate('challengeId');
@@ -1026,20 +1218,54 @@ const submitProposal = async (req, res, next) => {
       return errorResponse(res, 'Project not found', null, 404);
     }
 
-    const hasAccess = await checkProjectAccess(project, req.user, ['UNIVERSITY', 'ADMIN']);
+    const hasAccess = await checkProjectAccess(project, req.user, ['UNIVERSITY', 'ADMIN', 'STUDENT']);
     if (!hasAccess) {
-      return errorResponse(res, 'Unauthorized: Only the assigned university lead or administrator can submit project proposals', null, 403);
+      return errorResponse(res, 'Unauthorized: Only project team members, assigned university leads, or administrators can submit project proposals', null, 403);
     }
 
+    // Lock Enforcement: Once submitted/under review/approved, student cannot silently modify unless revision is requested or in draft
+    if (
+      project.proposal &&
+      ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED'].includes(project.proposal.approvalStatus) &&
+      project.proposal.approvalStatus !== 'NEEDS_REVISION'
+    ) {
+      return errorResponse(
+        res,
+        'Proposal has already been submitted and is locked for council evaluation. Modifications are only permitted if revision is requested or while in DRAFT status.',
+        null,
+        400
+      );
+    }
+
+    // Handle Save Draft
+    if (isDraft) {
+      project.proposal = {
+        problemUnderstanding,
+        proposedSolution,
+        methodology,
+        technology: Array.isArray(technology) ? technology : [technology].filter(Boolean),
+        timeline,
+        expectedImpact,
+        submittedAt: project.proposal?.submittedAt,
+        approvalStatus: 'DRAFT',
+        reviewNotes: project.proposal?.reviewNotes || ''
+      };
+
+      await project.save();
+      return successResponse(res, 'Proposal draft saved successfully', { project }, 200);
+    }
+
+    // Formal Submission
     project.proposal = {
       problemUnderstanding,
       proposedSolution,
       methodology,
-      technology: Array.isArray(technology) ? technology : [technology],
+      technology: Array.isArray(technology) ? technology : [technology].filter(Boolean),
       timeline,
       expectedImpact,
       submittedAt: new Date(),
-      approvalStatus: 'SUBMITTED'
+      approvalStatus: 'SUBMITTED',
+      reviewNotes: ''
     };
 
     project.status = 'PROPOSAL_SUBMITTED';
@@ -1057,7 +1283,7 @@ const submitProposal = async (req, res, next) => {
 
     await project.save();
 
-    // Notify admins of proposal submission
+    // Notify admins, university, and faculty mentor of proposal submission
     try {
       const admins = await User.find({ role: 'ADMIN' });
       for (const admin of admins) {
@@ -1067,10 +1293,39 @@ const submitProposal = async (req, res, next) => {
           senderName: req.user.name,
           type: 'PROPOSAL_SUBMITTED',
           title: 'Formal Project Proposal Submitted',
-          message: `University submitted technical proposal for "${project.title}".`,
+          message: `Student innovation team submitted technical proposal for "${project.title}".`,
           relatedEntity: 'Project',
           relatedEntityId: project._id
         });
+      }
+
+      if (project.universityId) {
+        await dispatchNotification({
+          recipient: project.universityId,
+          sender: req.user.id,
+          senderName: req.user.name,
+          type: 'PROPOSAL_SUBMITTED',
+          title: 'Formal Project Proposal Submitted',
+          message: `Student team submitted proposal for "${project.title}".`,
+          relatedEntity: 'Project',
+          relatedEntityId: project._id
+        });
+      }
+
+      if (project.mentor) {
+        const facultyDoc = await Faculty.findById(project.mentor);
+        if (facultyDoc && facultyDoc.user) {
+          await dispatchNotification({
+            recipient: facultyDoc.user,
+            sender: req.user.id,
+            senderName: req.user.name,
+            type: 'PROPOSAL_SUBMITTED',
+            title: 'Formal Project Proposal Submitted',
+            message: `Supervised student team submitted proposal for "${project.title}".`,
+            relatedEntity: 'Project',
+            relatedEntityId: project._id
+          });
+        }
       }
     } catch (notifErr) {
       console.warn('[Notification Warning]', notifErr.message);
@@ -1126,9 +1381,12 @@ const reviewProposal = async (req, res, next) => {
 
     await project.save();
 
-    // Notify university of proposal review outcome
+    // Notify university and student team of proposal review outcome
+    const notifType = approvalStatus === 'APPROVED' 
+      ? 'PROPOSAL_APPROVED' 
+      : (approvalStatus === 'NEEDS_REVISION' ? 'PROPOSAL_REVISION_REQUESTED' : 'STAGE_TRANSITION');
+
     if (project.universityId) {
-      const notifType = approvalStatus === 'APPROVED' ? 'PROPOSAL_APPROVED' : 'STAGE_TRANSITION';
       await dispatchNotification({
         recipient: project.universityId,
         sender: req.user.id,
@@ -1137,8 +1395,28 @@ const reviewProposal = async (req, res, next) => {
         message: `Delhi State Innovation Council reviewed proposal for "${project.title}": ${approvalStatus}.`,
         type: notifType,
         relatedEntity: 'Project',
-        relatedEntityId: project._id
+        relatedEntityId: project._id,
+        project: project._id
       });
+    }
+
+    try {
+      const studentUserIds = await getProjectStudentUserIds(project);
+      for (const sId of studentUserIds) {
+        await dispatchNotification({
+          recipient: sId,
+          sender: req.user.id,
+          senderName: req.user.name,
+          title: `Project Proposal ${approvalStatus === 'APPROVED' ? 'Approved' : 'Revision Requested'}`,
+          message: reviewNotes || `Proposal for "${project.title}" review result: ${approvalStatus}.`,
+          type: notifType,
+          relatedEntity: 'Project',
+          relatedEntityId: project._id,
+          project: project._id
+        });
+      }
+    } catch (notifErr) {
+      console.warn('[Proposal Review Notification Warning]', notifErr.message);
     }
 
     return successResponse(res, `Proposal review status updated to ${approvalStatus}`, { project });
@@ -1332,6 +1610,652 @@ const ignoreIndustryRecommendation = async (req, res, next) => {
   }
 };
 
+/**
+ * Request Industry Co-Development Collaboration
+ * POST /api/projects/:id/request-industry
+ */
+const requestIndustryCollaboration = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { partnerName, areaOfInterest, message } = req.body;
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, ['STUDENT', 'UNIVERSITY', 'FACULTY', 'ADMIN']);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to request industry collaboration for this project', null, 403);
+    }
+
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: 'Industry Collaboration Requested',
+      content: `Collaboration outreach initiated with ${partnerName || 'Corporate Ecosystem Partner'}: ${message || areaOfInterest || 'Co-development and prototype testing'}.`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    return successResponse(res, 'Industry collaboration request recorded successfully', { project }, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Student/University Requests Faculty Mentorship Review
+ * POST /api/projects/:id/mentor/request-review
+ */
+const requestMentorReview = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { requestNotes } = req.body;
+
+    const project = await Project.findById(id).populate('mentor');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, ['STUDENT', 'UNIVERSITY', 'FACULTY', 'ADMIN']);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to request mentor review for this project', null, 403);
+    }
+
+    if (!project.mentor) {
+      return errorResponse(res, 'No faculty mentor has been assigned to this project yet', null, 400);
+    }
+
+    project.mentorReviewStatus = 'REVIEW_REQUESTED';
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: 'Mentorship Review Requested',
+      content: requestNotes || `Student team requested mentorship review on project deliverables and methodology.`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    // Notify Faculty Mentor
+    if (project.mentor && project.mentor.user) {
+      await dispatchNotification({
+        recipient: project.mentor.user,
+        sender: req.user.id,
+        senderName: req.user.name,
+        type: 'GENERAL',
+        title: 'Project Mentorship Review Requested',
+        message: `Student team requested review for "${project.title}": ${requestNotes || 'Review requested for active sprint.'}`,
+        relatedEntity: 'Project',
+        relatedEntityId: project._id
+      });
+    }
+
+    return successResponse(res, 'Mentorship review requested successfully', { project }, 200);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Faculty/University Records Mentorship Feedback
+ * POST /api/projects/:id/mentor/feedback
+ */
+const addMentorFeedback = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { feedback, reviewStatus = 'SATISFACTORY', upcomingReviewDate } = req.body;
+
+    // Security guard: Students CANNOT submit mentor feedback or modify faculty records
+    if (req.user.role === 'STUDENT') {
+      return errorResponse(res, 'Unauthorized: Students cannot submit mentor feedback or modify faculty records.', null, 403);
+    }
+
+    if (!feedback || !feedback.trim()) {
+      return errorResponse(res, 'Feedback content is required', null, 400);
+    }
+
+    const project = await Project.findById(id).populate('mentor').populate('team');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, ['FACULTY', 'UNIVERSITY', 'ADMIN']);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to add mentor feedback for this project', null, 403);
+    }
+
+    const facultyUser = await Faculty.findOne({ user: req.user.id });
+    const facultyName = facultyUser?.name || req.user.name;
+
+    const reviewEntry = {
+      faculty: facultyUser?._id || project.mentor?._id,
+      facultyName,
+      feedback: feedback.trim(),
+      reviewStatus,
+      reviewDate: new Date(),
+      upcomingReviewDate: upcomingReviewDate ? new Date(upcomingReviewDate) : undefined
+    };
+
+    project.mentorReviews.unshift(reviewEntry);
+    project.lastMentorFeedback = feedback.trim();
+    project.lastMentorFeedbackDate = new Date();
+    project.mentorReviewStatus = reviewStatus;
+    if (upcomingReviewDate) {
+      project.upcomingMentorReview = new Date(upcomingReviewDate);
+    }
+
+    project.updates.unshift({
+      user: req.user.id,
+      userName: facultyName,
+      userRole: req.user.role,
+      title: 'Faculty Mentor Feedback Recorded',
+      content: `Supervising mentor added evaluation: "${feedback.slice(0, 120)}..."`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    // Notify student team members
+    try {
+      if (project.team) {
+        const team = await Team.findById(project.team._id || project.team).populate('members.student');
+        if (team && Array.isArray(team.members)) {
+          for (const m of team.members) {
+            const studentUserId = m.student?.user || m.student?._id;
+            if (studentUserId) {
+              await dispatchNotification({
+                recipient: studentUserId,
+                sender: req.user.id,
+                senderName: facultyName,
+                type: 'FACULTY_FEEDBACK',
+                title: 'Faculty Mentor Feedback Received',
+                message: `${facultyName} added feedback on "${project.title}": "${feedback.slice(0, 100)}..."`,
+                relatedEntity: 'Project',
+                relatedEntityId: project._id
+              });
+            }
+          }
+        }
+      }
+    } catch (notifErr) {
+      console.warn('[Notification Warning]', notifErr.message);
+    }
+
+    return successResponse(res, 'Mentor feedback recorded successfully', { project }, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update Project Prototype Details
+ * PUT /api/projects/:id/prototype
+ */
+const updateProjectPrototype = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      version,
+      description,
+      technologyUsed,
+      repositoryUrl,
+      demoUrl,
+      prototypeStatus,
+      testingStatus
+    } = req.body;
+
+    const project = await Project.findById(id).populate('team mentor');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, ['STUDENT', 'UNIVERSITY', 'FACULTY', 'ADMIN']);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to modify prototype records for this project', null, 403);
+    }
+
+    // Sanitize repositoryUrl: if provided, must be valid URL. No fake links.
+    let cleanRepoUrl = '';
+    if (repositoryUrl && repositoryUrl.trim()) {
+      const trimmed = repositoryUrl.trim();
+      if (!/^https?:\/\/.+/i.test(trimmed)) {
+        return errorResponse(res, 'Repository URL must be a valid http:// or https:// link', null, 400);
+      }
+      cleanRepoUrl = trimmed;
+    }
+
+    let cleanDemoUrl = '';
+    if (demoUrl && demoUrl.trim()) {
+      cleanDemoUrl = demoUrl.trim();
+    }
+
+    // Technology used formatting
+    let techArray = project.prototype?.technologyUsed || [];
+    if (technologyUsed) {
+      techArray = Array.isArray(technologyUsed)
+        ? technologyUsed
+        : technologyUsed.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+
+    project.prototype = {
+      name: name?.trim() || project.prototype?.name || 'Engineering Prototype',
+      version: version?.trim() || project.prototype?.version || 'v1.0.0',
+      description: description?.trim() || project.prototype?.description || '',
+      technologyUsed: techArray,
+      repositoryUrl: cleanRepoUrl,
+      demoUrl: cleanDemoUrl,
+      prototypeStatus: prototypeStatus || project.prototype?.prototypeStatus || 'DEVELOPMENT',
+      testingStatus: testingStatus || project.prototype?.testingStatus || 'IN_PROGRESS',
+      lastUpdatedBy: req.user.id,
+      updatedAt: new Date()
+    };
+
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: 'Prototype Configuration Updated',
+      content: `Updated prototype "${project.prototype.name}" (${project.prototype.version}) status: ${project.prototype.prototypeStatus}.`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    return successResponse(res, 'Prototype configuration updated successfully', {
+      prototype: project.prototype
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get Test Records for Project
+ * GET /api/projects/:id/tests
+ */
+const getProjectTests = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id).select('testRecords title');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+    const testRecords = (project.testRecords || []).sort(
+      (a, b) => new Date(b.date || b.createdAt) - new Date(a.date || a.createdAt)
+    );
+    return successResponse(res, 'Project test trials retrieved successfully', {
+      count: testRecords.length,
+      tests: testRecords
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Log New Testing Record
+ * POST /api/projects/:id/tests
+ */
+const createProjectTest = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const {
+      testName,
+      objective,
+      date,
+      location,
+      participantsSampleSize,
+      method,
+      result,
+      issuesFound,
+      status
+    } = req.body;
+
+    if (!testName || !objective || !method) {
+      return errorResponse(res, 'Test Name, Objective, and Testing Methodology are required fields', null, 400);
+    }
+
+    const project = await Project.findById(id).populate('team mentor');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, ['STUDENT', 'UNIVERSITY', 'FACULTY', 'ADMIN']);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to log test records for this project', null, 403);
+    }
+
+    // Student self-approval guard: students cannot mark a test as PASSED
+    let testStatus = status || 'PLANNED';
+    if (req.user.role === 'STUDENT' && testStatus === 'PASSED') {
+      return errorResponse(
+        res,
+        'Students cannot approve their own test records or set status to PASSED. Formal test validation requires Supervising Faculty Mentor review.',
+        null,
+        403
+      );
+    }
+
+    const newTest = {
+      testName: testName.trim(),
+      objective: objective.trim(),
+      date: date ? new Date(date) : new Date(),
+      location: location?.trim() || 'University Engineering Laboratory',
+      participantsSampleSize: participantsSampleSize?.trim() || 'Laboratory Prototype Bench',
+      method: method.trim(),
+      result: result?.trim() || '',
+      issuesFound: issuesFound?.trim() || '',
+      status: testStatus,
+      testedBy: req.user.id,
+      testedByName: req.user.name || 'Student Innovator',
+      evidence: [],
+      createdAt: new Date()
+    };
+
+    project.testRecords.unshift(newTest);
+
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: 'Testing Trial Logged',
+      content: `Recorded test run "${newTest.testName}" with status: ${newTest.status}.`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    return successResponse(
+      res,
+      'Testing record logged successfully',
+      {
+        test: project.testRecords[0]
+      },
+      201
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Upload Evidence Artifact for a Test Trial
+ * POST /api/projects/:id/tests/:testId/evidence
+ */
+const uploadTestEvidence = async (req, res, next) => {
+  try {
+    const { id, testId } = req.params;
+    const { title } = req.body;
+
+    if (!req.file) {
+      return errorResponse(res, 'Evidence file attachment is required', null, 400);
+    }
+
+    const project = await Project.findById(id).populate('team mentor');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, ['STUDENT', 'UNIVERSITY', 'FACULTY', 'ADMIN']);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to upload test evidence for this project', null, 403);
+    }
+
+    const testRecord = project.testRecords.id(testId);
+    if (!testRecord) {
+      return errorResponse(res, 'Test record not found', null, 404);
+    }
+
+    const uploadResult = await uploadToCloudinary(
+      req.file.buffer,
+      req.file.originalname,
+      'delhi_test_evidence'
+    );
+
+    const evidenceEntry = {
+      title: title || req.file.originalname,
+      url: uploadResult.url,
+      publicId: uploadResult.publicId || '',
+      fileType: req.file.mimetype || 'application/pdf',
+      uploadedAt: new Date()
+    };
+
+    testRecord.evidence.push(evidenceEntry);
+
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: 'Test Evidence Uploaded',
+      content: `Uploaded test verification evidence "${evidenceEntry.title}" for test trial "${testRecord.testName}".`,
+      type: 'DOCUMENT_UPLOAD',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    return successResponse(
+      res,
+      'Test evidence uploaded successfully',
+      {
+        evidence: evidenceEntry,
+        test: testRecord
+      },
+      201
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Review & Validate Testing Trial (Faculty / University / Admin only)
+ * POST /api/projects/:id/tests/:testId/review
+ */
+const reviewProjectTest = async (req, res, next) => {
+  try {
+    const { id, testId } = req.params;
+    const { reviewerFeedback, status } = req.body;
+
+    if (!['FACULTY', 'UNIVERSITY', 'ADMIN'].includes(req.user.role)) {
+      return errorResponse(res, 'Students cannot review or sign-off on test trials', null, 403);
+    }
+
+    if (!status || !['PASSED', 'FAILED', 'RETEST_REQUIRED'].includes(status)) {
+      return errorResponse(res, 'A valid evaluation status (PASSED, FAILED, RETEST_REQUIRED) is required', null, 400);
+    }
+
+    const project = await Project.findById(id).populate('team mentor');
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const testRecord = project.testRecords.id(testId);
+    if (!testRecord) {
+      return errorResponse(res, 'Test record not found', null, 404);
+    }
+
+    testRecord.status = status;
+    testRecord.reviewerFeedback = reviewerFeedback?.trim() || '';
+    testRecord.reviewedBy = req.user.id;
+    testRecord.reviewedByName = req.user.name || 'Faculty Evaluator';
+    testRecord.reviewedAt = new Date();
+
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: `Test Trial Evaluated (${status})`,
+      content: `${req.user.name} evaluated test "${testRecord.testName}": marked as ${status}.${reviewerFeedback ? ` Note: "${reviewerFeedback}"` : ''}`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+
+    await project.save();
+
+    return successResponse(res, 'Test trial review recorded successfully', {
+      test: testRecord
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get all partnerships for a specific project
+ * GET /api/projects/:id/partnerships
+ */
+const getProjectPartnerships = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const project = await Project.findById(id);
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const hasAccess = await checkProjectAccess(project, req.user, [
+      'STUDENT',
+      'UNIVERSITY',
+      'FACULTY',
+      'ADMIN',
+      'INDUSTRY'
+    ]);
+    if (!hasAccess) {
+      return errorResponse(res, 'Unauthorized to view partnerships for this project', null, 403);
+    }
+
+    const partnerships = await Partnership.find({ project: id })
+      .populate('industry', 'name email organization phone district avatar')
+      .populate('industryProfile')
+      .populate('student', 'name email')
+      .sort({ updatedAt: -1 });
+
+    return successResponse(res, 'Project partnerships retrieved successfully', {
+      count: partnerships.length,
+      partnerships
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update partnership status (Accept, Reject, Activate, Complete)
+ * PUT /api/projects/:id/partnerships/:partnershipId/status
+ */
+const updatePartnershipStatus = async (req, res, next) => {
+  try {
+    const { id, partnershipId } = req.params;
+    const { status, reviewNotes, assignedMentor } = req.body;
+
+    // Security guard: Students are strictly forbidden from approving or modifying partnership status
+    if (req.user.role === 'STUDENT') {
+      return errorResponse(res, 'Forbidden: Students cannot approve collaboration requests or modify partnership status', null, 403);
+    }
+
+    if (!['INDUSTRY', 'UNIVERSITY', 'ADMIN'].includes(req.user.role)) {
+      return errorResponse(res, 'Unauthorized to evaluate partnerships', null, 403);
+    }
+
+    const validStatuses = ['ACCEPTED', 'REJECTED', 'ACTIVE', 'COMPLETED'];
+    if (!validStatuses.includes(status)) {
+      return errorResponse(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`, null, 400);
+    }
+
+    const project = await Project.findById(id);
+    if (!project) {
+      return errorResponse(res, 'Project not found', null, 404);
+    }
+
+    const partnership = await Partnership.findOne({ _id: partnershipId, project: id })
+      .populate('industry', 'name email organization')
+      .populate('student', 'name email');
+
+    if (!partnership) {
+      return errorResponse(res, 'Partnership record not found for this project', null, 404);
+    }
+
+    partnership.status = status;
+    if (reviewNotes !== undefined) partnership.reviewNotes = reviewNotes.trim();
+    if (assignedMentor) partnership.assignedMentor = assignedMentor;
+    partnership.reviewedAt = new Date();
+
+    if (['ACCEPTED', 'ACTIVE'].includes(status) && partnership.industry) {
+      const indId = partnership.industry._id || partnership.industry;
+      await Project.findByIdAndUpdate(id, { $addToSet: { industryPartners: indId } });
+    }
+
+    const partnerName = partnership.industry?.organization || partnership.industry?.name || 'Corporate Partner';
+    project.updates.unshift({
+      user: req.user.id,
+      userName: req.user.name,
+      userRole: req.user.role,
+      title: `Industry Partnership ${status}`,
+      content: `${partnerName} collaboration status updated to ${status}.${reviewNotes ? ` Notes: "${reviewNotes}"` : ''}`,
+      type: 'UPDATE',
+      createdAt: new Date()
+    });
+    await project.save();
+    await partnership.save();
+
+    // Dispatch notification to student innovator
+    let recipientUserId = partnership.requestedBy;
+    if (!recipientUserId && partnership.student) {
+      const stud = await Student.findById(partnership.student._id || partnership.student);
+      if (stud?.user) recipientUserId = stud.user;
+      else if (stud?.email) {
+        const u = await User.findOne({ email: stud.email.toLowerCase() });
+        if (u) recipientUserId = u._id;
+      }
+    }
+
+    if (recipientUserId) {
+      let notifTitle = 'Industry Collaboration Status Update';
+      let notifMessage = `Your collaboration request with ${partnerName} for project "${project.title}" has been updated to ${status}.`;
+
+      if (status === 'ACCEPTED') {
+        notifTitle = 'Collaboration Request Accepted!';
+        notifMessage = `Great news! ${partnerName} has accepted your ${partnership.supportType} request for project "${project.title}".`;
+      } else if (status === 'REJECTED') {
+        notifTitle = 'Collaboration Request Notice';
+        notifMessage = `Your collaboration request to ${partnerName} for project "${project.title}" was not accepted at this time.`;
+      } else if (status === 'ACTIVE') {
+        notifTitle = 'Partnership Activated!';
+        notifMessage = `Active collaboration initiated with ${partnerName} on project "${project.title}".`;
+      }
+
+      await dispatchNotification({
+        recipient: recipientUserId,
+        sender: req.user.id,
+        senderName: req.user.name,
+        title: notifTitle,
+        message: notifMessage,
+        type: status === 'ACCEPTED' ? 'INDUSTRY_REQUEST_ACCEPTED' : 'STATUS_CHANGE',
+        relatedEntity: 'Partnership',
+        relatedEntityId: partnership._id,
+        project: project._id
+      });
+    }
+
+    return successResponse(res, `Partnership status updated to ${status} successfully`, {
+      partnership
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getProjects,
   getProjectById,
@@ -1351,5 +2275,15 @@ module.exports = {
   assignMentor,
   recommendIndustriesForProject,
   acceptIndustryRecommendation,
-  ignoreIndustryRecommendation
+  ignoreIndustryRecommendation,
+  requestIndustryCollaboration,
+  requestMentorReview,
+  addMentorFeedback,
+  updateProjectPrototype,
+  getProjectTests,
+  createProjectTest,
+  uploadTestEvidence,
+  reviewProjectTest,
+  getProjectPartnerships,
+  updatePartnershipStatus
 };

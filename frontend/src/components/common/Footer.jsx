@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { PORTAL_TITLE, GOVT_NAME, FOOTER_LINKS } from '../../utils/constants';
+import { SamadhanSetuEmblem } from './SamadhanSetuLogo';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -11,11 +12,17 @@ const Footer = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10 grid grid-cols-1 md:grid-cols-4 gap-8">
         {/* Col 1: About Portal */}
         <div className="space-y-3">
-          <h4 className="text-sm font-serif font-bold text-gov-navy uppercase tracking-wider border-b border-gov-border pb-1">
-            {PORTAL_TITLE}
-          </h4>
+          <div className="flex items-center space-x-2.5 border-b border-gov-border pb-2">
+            <SamadhanSetuEmblem size={34} />
+            <div>
+              <h4 className="text-sm font-serif font-bold text-gov-navy leading-tight">
+                {PORTAL_TITLE}
+              </h4>
+              <span className="text-[10px] font-serif text-amber-700 font-semibold">समाधान सेतु</span>
+            </div>
+          </div>
           <p className="text-xs font-serif text-gov-text-secondary leading-relaxed">
-            A state-level collaborative platform empowering citizens to submit local challenges, enabling academic researchers and students to develop sustainable solutions, and connecting industry partners for funding and execution across the National Capital Territory of Delhi.
+            A national & state-level collaborative bridge empowering citizens to submit local challenges, enabling academic researchers and student innovators to build deployable solutions, and connecting industry partners for sponsorship and execution.
           </p>
           <div className="pt-2 text-xs font-serif text-gov-maroon font-semibold">
             {GOVT_NAME}

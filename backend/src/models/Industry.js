@@ -24,6 +24,7 @@ const industrySchema = new mongoose.Schema(
         'Innovation Hub'
       ],
       default: 'Industry'
+      
     },
     industrySector: {
       type: String,

@@ -4,6 +4,7 @@ import { PORTAL_TITLE, GOVT_NAME, NAV_LINKS } from '../../utils/constants';
 import { useAuth } from '../../hooks/useAuth';
 import Button from './Button';
 import Badge from './Badge';
+import SamadhanSetuLogo from './SamadhanSetuLogo';
 import { Menu, X, User, LogOut, ShieldCheck, ChevronDown } from 'lucide-react';
 
 const roleDashboardMap = {
@@ -42,40 +43,19 @@ const Navbar = () => {
           </div>
           <div className="flex items-center space-x-4 text-gray-300">
             <span className="hidden md:inline">Language: English / हिन्दी</span>
-            <span>NCT of Delhi</span>
+            <span>National Capital Region</span>
           </div>
         </div>
       </div>
 
       {/* Main Header Bar */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
         {/* Brand / Logo */}
-        <Link to="/select-role" className="flex items-center space-x-3 group">
-          <div className="w-11 h-11 rounded-sm bg-gov-maroon flex items-center justify-center text-white border-2 border-amber-600 shadow-sm transition-transform group-hover:scale-105">
-            <svg
-              className="w-6 h-6"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M12 2L2 7l10 5 10-5-10-5z" />
-              <path d="M2 17l10 5 10-5" />
-              <path d="M2 12l10 5 10-5" />
-            </svg>
-          </div>
-
-          <div>
-            <div className="text-base sm:text-lg font-serif font-bold text-gov-maroon tracking-tight leading-tight">
-              {PORTAL_TITLE}
-            </div>
-            <div className="text-xs font-serif text-gov-navy font-semibold tracking-wide">
-              Societal Innovation & Research Collaboration Framework
-            </div>
-          </div>
-        </Link>
+        <SamadhanSetuLogo
+          size="md"
+          subtitle="Societal Innovation & Research Collaboration Framework"
+          to="/select-role"
+        />
 
         {/* Desktop Navigation */}
         <nav className="hidden lg:flex items-center space-x-6">

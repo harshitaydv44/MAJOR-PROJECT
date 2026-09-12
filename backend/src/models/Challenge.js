@@ -51,7 +51,9 @@ const challengeSchema = new mongoose.Schema(
       unique: true,
       trim: true,
       default: function () {
-        return 'DEL-' + Math.floor(1000 + Math.random() * 9000);
+        const year = new Date().getFullYear();
+        const rand = Math.floor(100000 + Math.random() * 900000);
+        return `DEL-${year}-${rand}`;
       }
     },
     title: {
@@ -83,6 +85,16 @@ const challengeSchema = new mongoose.Schema(
         'Other'
       ],
       default: 'Other'
+    },
+    subcategory: {
+      type: String,
+      default: '',
+      trim: true
+    },
+    expectedOutcome: {
+      type: String,
+      default: '',
+      trim: true
     },
     district: {
       type: String,
@@ -138,6 +150,16 @@ const challengeSchema = new mongoose.Schema(
       enum: ['low', 'medium', 'high', 'critical'],
       default: 'medium'
     },
+    citizenUrgency: {
+      type: String,
+      enum: ['low', 'medium', 'high', 'immediate'],
+      default: 'medium'
+    },
+    citizenSeverity: {
+      type: String,
+      enum: ['minor', 'moderate', 'severe', 'critical'],
+      default: 'moderate'
+    },
     urgency: {
       type: String,
       enum: ['low', 'medium', 'high', 'immediate'],
@@ -149,7 +171,7 @@ const challengeSchema = new mongoose.Schema(
       default: 'moderate'
     },
     impact: {
-      type: String,
+      type: mongoose.Schema.Types.Mixed,
       default: 'Estimated 5,000+ local citizens and commuters affected'
     },
     assignedUniversity: {
@@ -184,6 +206,22 @@ const challengeSchema = new mongoose.Schema(
     },
     internalNotes: [internalNoteSchema],
     timeline: [timelineEventSchema],
+    statusHistory: [
+      {
+        status: { type: String, required: true },
+        label: { type: String, default: '' },
+        publicMessage: { type: String, default: '' },
+        comment: { type: String, default: '' },
+        changedAt: { type: Date, default: Date.now }
+      }
+    ],
+    savedBy: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
+        index: true
+      }
+    ],
     evidence: [evidenceSchema],
     milestones: [milestoneSchema],
     solutionNotes: {

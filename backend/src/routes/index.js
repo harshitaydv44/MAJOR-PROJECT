@@ -13,10 +13,12 @@ const facultyRoutes = require('./facultyRoutes');
 const studentRoutes = require('./studentRoutes');
 const teamRoutes = require('./teamRoutes');
 const industryRoutes = require('./industryRoutes');
+const clientRoutes = require('./clientRoutes');
 
 // Mount API routes
 router.use('/health', healthRoutes);
 router.use('/auth', authRoutes);
+router.use('/client', clientRoutes);
 router.use('/challenges', challengeRoutes);
 router.use('/problems', problemRoutes);
 router.use('/admin', adminRoutes);
@@ -24,6 +26,7 @@ router.use('/notifications', notificationRoutes);
 router.use('/universities', universityRoutes);
 router.use('/projects', projectRoutes);
 router.use('/faculty', facultyRoutes);
+router.use('/student', studentRoutes);
 router.use('/students', studentRoutes);
 router.use('/teams', teamRoutes);
 router.use('/industry', industryRoutes);

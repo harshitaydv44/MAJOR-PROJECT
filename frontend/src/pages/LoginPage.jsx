@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
+import { SamadhanSetuEmblem } from '../components/common/SamadhanSetuLogo';
 import { Lock, Mail, AlertCircle, ArrowLeft, Key, Sparkles, Eye, EyeOff, HelpCircle, X } from 'lucide-react';
 
 const LoginPage = () => {
@@ -42,11 +43,11 @@ const LoginPage = () => {
   };
 
   const handleLoginSuccess = (userRole) => {
-    // If user arrived via a ProtectedRoute redirect, honor destination if compatible
+    const defaultPath = roleRedirectMap[userRole?.toUpperCase()] || '/student';
     const fromPath = location.state?.from?.pathname;
-    const defaultPath = roleRedirectMap[userRole?.toUpperCase()] || '/client';
 
-    if (fromPath && fromPath !== '/login') {
+    // Only honor fromPath if it belongs to this role's workspace
+    if (fromPath && fromPath !== '/login' && fromPath.startsWith(defaultPath)) {
       navigate(fromPath, { replace: true });
     } else {
       navigate(defaultPath, { replace: true });
@@ -66,7 +67,8 @@ const LoginPage = () => {
         rememberMe: true
       });
       const userRole = res.data?.user?.role || acc.role;
-      handleLoginSuccess(userRole);
+      const targetPath = roleRedirectMap[userRole?.toUpperCase()] || '/student';
+      navigate(targetPath, { replace: true });
     } catch (err) {
       setError(err.message || 'Demo authentication failed.');
     } finally {
@@ -110,11 +112,14 @@ const LoginPage = () => {
           <ArrowLeft className="w-3.5 h-3.5 mr-1" />
           Back to Portal Role Selection
         </Link>
+        <div className="flex justify-center mb-3">
+          <SamadhanSetuEmblem size={52} />
+        </div>
         <h2 className="text-2xl sm:text-3xl font-serif font-bold text-gov-navy">
           Stakeholder Sign In
         </h2>
         <p className="text-xs font-serif text-gov-text-secondary mt-1">
-          {PORTAL_TITLE} &bull; Official Digital Public Access
+          {PORTAL_TITLE} (समाधान सेतु) &bull; Official Digital Public Access
         </p>
       </div>
 

@@ -10,7 +10,9 @@ const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(config.mongoUri, {
-      serverSelectionTimeoutMS: 5000,
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
       autoIndex: true
     });
 
@@ -19,8 +21,10 @@ const connectDB = async () => {
     return conn;
   } catch (error) {
     console.error(`[Database Error] Failed to connect to MongoDB: ${error.message}`);
-    console.warn('[Database Warning] Continuing without persistent database connection. Start MongoDB to enable full persistence.');
-    return null;
+    console.error('[Database Error] MongoDB is required for the application to function.');
+    console.error('[Database Error] Please start MongoDB and try again.');
+    console.error('[Database Error] Connection string:', config.mongoUri);
+    throw new Error('MongoDB connection failed. Please ensure MongoDB is running.');
   }
 };
 

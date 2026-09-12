@@ -3,6 +3,7 @@ import { PORTAL_TITLE, PORTAL_SUBTITLE, ROLES } from '../utils/constants';
 import RoleCard from '../components/role/RoleCard';
 import { healthService } from '../services/healthService';
 import { challengeService } from '../services/challengeService';
+import { SamadhanSetuEmblem } from '../components/common/SamadhanSetuLogo';
 import { CheckCircle2, AlertCircle, Building, Users2, Lightbulb, Award, BarChart3 } from 'lucide-react';
 
 const RoleSelectionPage = () => {
@@ -60,7 +61,7 @@ const RoleSelectionPage = () => {
           </div>
 
           <div className="hidden md:flex items-center space-x-4 text-gov-text-muted">
-            <span>Framework: NCT Delhi Civic Innovation Policy</span>
+            <span>Framework: National & State Innovation Initiative</span>
             <span>&bull;</span>
             <span>Academic Cycle 2026-27</span>
           </div>
@@ -68,8 +69,11 @@ const RoleSelectionPage = () => {
 
         {/* Hero Section */}
         <div className="text-center max-w-3xl mx-auto mb-10 sm:mb-12">
-          <div className="inline-block px-3 py-1 bg-gov-maroon-surface text-gov-maroon text-xs font-serif font-bold uppercase tracking-wider rounded-sm border border-gov-maroon-border mb-4">
-            State Innovation & Challenge Portal
+          <div className="flex justify-center mb-4">
+            <SamadhanSetuEmblem size={68} />
+          </div>
+          <div className="inline-block px-3.5 py-1 bg-gov-maroon-surface text-gov-maroon text-xs font-serif font-bold uppercase tracking-wider rounded-sm border border-gov-maroon-border mb-3">
+            National & State Innovation Network &bull; समाधान सेतु
           </div>
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-gov-navy tracking-tight leading-tight mb-4">
             {PORTAL_TITLE}
@@ -115,10 +119,10 @@ const RoleSelectionPage = () => {
         <div className="bg-white border border-gov-border rounded-sm p-8 shadow-gov-card">
           <div className="border-b border-gov-border pb-4 mb-6">
             <h2 className="text-xl font-serif font-bold text-gov-navy">
-              Collaborative Innovation Workflow for NCT of Delhi
+              Collaborative Problem-to-Solution Lifecycle
             </h2>
             <p className="text-xs font-serif text-gov-text-secondary mt-1">
-              How civic problems transform into deployable societal solutions across Delhi's 11 districts
+              How civic challenges transform into deployable municipal and community solutions through Samadhan Setu
             </p>
           </div>
 
