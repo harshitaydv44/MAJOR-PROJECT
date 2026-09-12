@@ -4,6 +4,7 @@ import { PORTAL_TITLE } from '../utils/constants';
 import { useAuth } from '../hooks/useAuth';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
+import { SamadhanSetuEmblem } from '../components/common/SamadhanSetuLogo';
 import { User, Mail, Lock, Building, Phone, AlertCircle, ArrowLeft, CheckSquare, Eye, EyeOff, MapPin } from 'lucide-react';
 
 const RegisterPage = () => {
@@ -152,11 +153,14 @@ const RegisterPage = () => {
           <ArrowLeft className="w-3.5 h-3.5 mr-1" />
           Back to Portal Role Selection
         </Link>
+        <div className="flex justify-center mb-3">
+          <SamadhanSetuEmblem size={52} />
+        </div>
         <h2 className="text-2xl sm:text-3xl font-serif font-bold text-gov-navy">
           Stakeholder Account Onboarding
         </h2>
         <p className="text-xs font-serif text-gov-text-secondary mt-1">
-          {PORTAL_TITLE} &bull; Government of NCT of Delhi
+          {PORTAL_TITLE} (समाधान सेतु) &bull; National & State Innovation Network
         </p>
       </div>
 

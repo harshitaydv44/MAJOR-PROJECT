@@ -34,5 +34,20 @@ export const challengeService = {
   getStats: async () => {
     const response = await api.get('/challenges/stats');
     return response.data;
+  },
+
+  getStudentChallenges: async (params = {}) => {
+    const response = await api.get('/challenges/student/my-challenges', { params });
+    return response.data;
+  },
+
+  expressInterest: async (challengeId, notes = '') => {
+    const response = await api.post(`/challenges/${challengeId}/express-interest`, { notes });
+    return response.data;
+  },
+
+  getInterestStatus: async (challengeId) => {
+    const response = await api.get(`/challenges/${challengeId}/interest-status`);
+    return response.data;
   }
 };

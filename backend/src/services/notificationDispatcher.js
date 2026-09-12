@@ -13,13 +13,17 @@ const dispatchNotification = async ({
   title,
   message,
   relatedEntity = 'Challenge',
-  relatedEntityId
+  relatedEntityId,
+  project,
+  projectId
 }) => {
   try {
     if (!recipient || !title || !message) {
       console.warn('[Notification Warning] Missing recipient, title, or message');
       return null;
     }
+
+    const linkedProjectId = project || projectId || (relatedEntity === 'Project' ? relatedEntityId : undefined);
 
     // 1. Persist in MongoDB
     const notification = await Notification.create({
@@ -32,6 +36,7 @@ const dispatchNotification = async ({
       relatedEntity,
       relatedEntityId: relatedEntityId || undefined,
       challenge: relatedEntity === 'Challenge' ? relatedEntityId : undefined,
+      project: linkedProjectId,
       isRead: false,
       read: false
     });

@@ -7,6 +7,7 @@ import DashboardLayout from '../layouts/DashboardLayout';
 import ClientLayout from '../layouts/ClientLayout';
 import AdminLayout from '../layouts/AdminLayout';
 import UniversityLayout from '../layouts/UniversityLayout';
+import StudentLayout from '../layouts/StudentLayout';
 
 // Protection components
 import ProtectedRoute from '../components/common/ProtectedRoute';
@@ -62,6 +63,15 @@ import {
 // Other Stakeholder Pages
 import FacultyDashboardPage from '../pages/FacultyDashboardPage';
 import StudentDashboardPage from '../pages/StudentDashboardPage';
+import StudentChallengesPage from '../pages/student/StudentChallengesPage';
+import StudentChallengeDetailPage from '../pages/student/StudentChallengeDetailPage';
+import StudentProjectsPage from '../pages/student/StudentProjectsPage';
+import StudentMilestonesPage from '../pages/student/StudentMilestonesPage';
+import StudentDocumentsPage from '../pages/student/StudentDocumentsPage';
+import StudentIndustryPage from '../pages/student/StudentIndustryPage';
+import StudentNotificationsPage from '../pages/student/StudentNotificationsPage';
+import StudentProfilePage from '../pages/student/StudentProfilePage';
+import StudentAchievementsPage from '../pages/student/StudentAchievementsPage';
 
 // Industry Pages & Layout
 import IndustryLayout from '../layouts/IndustryLayout';
@@ -188,16 +198,21 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <RoleRoute allowedRoles={['STUDENT']}>
-              <DashboardLayout
-                roleId="student"
-                roleTitle="Student"
-                roleBadge="Solution Provider"
-              />
+              <StudentLayout />
             </RoleRoute>
           </ProtectedRoute>
         }
       >
         <Route index element={<StudentDashboardPage />} />
+        <Route path="challenges" element={<StudentChallengesPage />} />
+        <Route path="challenges/:id" element={<StudentChallengeDetailPage />} />
+        <Route path="projects" element={<StudentProjectsPage />} />
+        <Route path="milestones" element={<StudentMilestonesPage />} />
+        <Route path="documents" element={<StudentDocumentsPage />} />
+        <Route path="industry" element={<StudentIndustryPage />} />
+        <Route path="notifications" element={<StudentNotificationsPage />} />
+        <Route path="profile" element={<StudentProfilePage />} />
+        <Route path="achievements" element={<StudentAchievementsPage />} />
       </Route>
 
       {/* 6. Industry / Startup Routes */}

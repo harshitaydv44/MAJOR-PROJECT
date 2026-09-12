@@ -11,6 +11,8 @@ router.use(protect);
 
 router.get('/', getMyNotifications);
 router.patch('/read-all', markAllAsRead);
+router.put('/read-all', markAllAsRead);
 router.patch('/:id/read', markAsRead);
+router.put('/:id/read', markAsRead);
 
 module.exports = router;

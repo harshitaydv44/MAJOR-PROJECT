@@ -19,6 +19,28 @@ const teamMemberSchema = new mongoose.Schema({
       'Team Lead'
     ],
     default: 'Research'
+  },
+  responsibility: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  joinedAt: {
+    type: Date,
+    default: Date.now
+  },
+  status: {
+    type: String,
+    enum: ['INVITED', 'ACCEPTED', 'REJECTED'],
+    default: 'ACCEPTED'
+  },
+  invitedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  invitedAt: {
+    type: Date,
+    default: Date.now
   }
 });
 

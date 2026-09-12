@@ -260,7 +260,7 @@ export const HelpSupportPage = () => {
       <div>
         <h1 className="text-2xl font-bold text-gov-navy">Helpdesk & Citizen Support</h1>
         <p className="text-xs text-gov-text-secondary mt-1">
-          Guidance and official contact channels for the Delhi Societal Innovation Portal.
+          Guidance and official contact channels for the Samadhan Setu Portal.
         </p>
       </div>
 

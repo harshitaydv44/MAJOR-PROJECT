@@ -121,8 +121,8 @@ const UniversityDashboardPage = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <Card
-            title="Verified Delhi Societal Problem Bank"
-            subtitle="Problems vetted by GNCTD awaiting multidisciplinary research cohort assignment"
+            title="Verified Samadhan Setu Problem Bank"
+            subtitle="Problems vetted by innovation nodal cells awaiting multidisciplinary research cohort assignment"
           >
             {loading ? (
               <div className="py-8 text-center text-xs font-serif text-gov-text-muted">

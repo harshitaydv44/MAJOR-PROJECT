@@ -6,6 +6,11 @@ const milestoneDocumentSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  description: {
+    type: String,
+    default: '',
+    trim: true
+  },
   url: {
     type: String,
     required: true
@@ -17,6 +22,23 @@ const milestoneDocumentSchema = new mongoose.Schema({
   fileType: {
     type: String,
     default: 'application/pdf'
+  },
+  submissionNote: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  externalLink: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
+  },
+  milestoneId: {
+    type: mongoose.Schema.Types.ObjectId
   },
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -97,7 +119,38 @@ const milestoneSchema = new mongoose.Schema({
       ref: 'User'
     }
   ],
-  comments: [milestoneCommentSchema]
+  comments: [milestoneCommentSchema],
+  facultyFeedback: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  facultyFeedbackDate: {
+    type: Date
+  },
+  facultyReviewer: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  facultyReviewerName: {
+    type: String,
+    default: ''
+  },
+  reviewStatus: {
+    type: String,
+    enum: ['PENDING', 'APPROVED', 'REVISION_REQUIRED'],
+    default: 'PENDING'
+  },
+  submissionNote: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  externalLink: {
+    type: String,
+    default: '',
+    trim: true
+  }
 });
 
 const proposalSchema = new mongoose.Schema({
@@ -150,6 +203,11 @@ const projectDocumentSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  description: {
+    type: String,
+    default: '',
+    trim: true
+  },
   url: {
     type: String,
     required: true
@@ -162,8 +220,22 @@ const projectDocumentSchema = new mongoose.Schema({
     type: String,
     default: 'application/pdf'
   },
+  submissionNote: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  externalLink: {
+    type: String,
+    default: '',
+    trim: true
+  },
   milestoneId: {
     type: mongoose.Schema.Types.ObjectId
+  },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
   },
   uploadedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -241,6 +313,10 @@ const projectCommentSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -313,6 +389,187 @@ const impactOutcomeSchema = new mongoose.Schema({
   isClaimed: {
     type: Boolean,
     default: false
+  }
+});
+
+const facultyReviewSchema = new mongoose.Schema({
+  faculty: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Faculty'
+  },
+  facultyName: {
+    type: String,
+    default: 'Supervising Faculty Mentor'
+  },
+  feedback: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  reviewStatus: {
+    type: String,
+    enum: ['PENDING', 'IN_REVIEW', 'SATISFACTORY', 'NEEDS_IMPROVEMENT', 'ACTION_REQUIRED'],
+    default: 'SATISFACTORY'
+  },
+  reviewDate: {
+    type: Date,
+    default: Date.now
+  },
+  upcomingReviewDate: {
+    type: Date
+  }
+});
+
+const prototypeSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+    trim: true,
+    default: 'Engineering Prototype'
+  },
+  version: {
+    type: String,
+    default: 'v1.0.0',
+    trim: true
+  },
+  description: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  technologyUsed: [
+    {
+      type: String,
+      trim: true
+    }
+  ],
+  repositoryUrl: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  demoUrl: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  prototypeStatus: {
+    type: String,
+    enum: ['PLANNING', 'DEVELOPMENT', 'READY_FOR_TESTING', 'TESTING', 'VALIDATED'],
+    default: 'DEVELOPMENT'
+  },
+  testingStatus: {
+    type: String,
+    enum: ['NOT_STARTED', 'IN_PROGRESS', 'PASSED', 'FAILED', 'RETEST_REQUIRED'],
+    default: 'IN_PROGRESS'
+  },
+  lastUpdatedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const testEvidenceSchema = new mongoose.Schema({
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  url: {
+    type: String,
+    required: true
+  },
+  publicId: {
+    type: String,
+    default: ''
+  },
+  fileType: {
+    type: String,
+    default: 'application/pdf'
+  },
+  uploadedAt: {
+    type: Date,
+    default: Date.now
+  }
+});
+
+const testingRecordSchema = new mongoose.Schema({
+  testName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  objective: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  date: {
+    type: Date,
+    default: Date.now
+  },
+  location: {
+    type: String,
+    default: 'University Engineering Laboratory',
+    trim: true
+  },
+  participantsSampleSize: {
+    type: String,
+    default: '50 cycles / 4 sensor nodes',
+    trim: true
+  },
+  method: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  result: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  issuesFound: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  evidence: [testEvidenceSchema],
+  status: {
+    type: String,
+    enum: ['PLANNED', 'IN_PROGRESS', 'PASSED', 'FAILED', 'RETEST_REQUIRED'],
+    default: 'PLANNED'
+  },
+  testedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  testedByName: {
+    type: String,
+    default: 'Student Innovator'
+  },
+  reviewerFeedback: {
+    type: String,
+    default: '',
+    trim: true
+  },
+  reviewedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  reviewedByName: {
+    type: String,
+    default: ''
+  },
+  reviewedAt: {
+    type: Date
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
   }
 });
 
@@ -443,7 +700,28 @@ const projectSchema = new mongoose.Schema(
           default: 'PENDING'
         }
       }
-    ]
+    ],
+    mentorReviews: [facultyReviewSchema],
+    mentorReviewStatus: {
+      type: String,
+      enum: ['PENDING', 'IN_REVIEW', 'SATISFACTORY', 'NEEDS_IMPROVEMENT', 'ACTION_REQUIRED', 'REVIEW_REQUESTED'],
+      default: 'PENDING'
+    },
+    lastMentorFeedback: {
+      type: String,
+      default: ''
+    },
+    lastMentorFeedbackDate: {
+      type: Date
+    },
+    upcomingMentorReview: {
+      type: Date
+    },
+    prototype: {
+      type: prototypeSchema,
+      default: () => ({})
+    },
+    testRecords: [testingRecordSchema]
   },
   {
     timestamps: true

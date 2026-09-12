@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import NotificationDropdown from '../common/NotificationDropdown';
 import Button from '../common/Button';
 import Badge from '../common/Badge';
+import SamadhanSetuLogo from '../common/SamadhanSetuLogo';
 import {
   Bell,
   LogOut,
@@ -81,19 +82,12 @@ const AdminHeader = ({ onToggleSidebar }) => {
             <Menu className="w-5 h-5" />
           </button>
 
-          <Link to="/admin" className="flex items-center space-x-2.5">
-            <div className="w-9 h-9 rounded-sm bg-gov-navy flex items-center justify-center text-white border border-amber-600 shadow-xs">
-              <ShieldCheck className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <div className="font-serif font-bold text-gov-navy text-base sm:text-lg leading-tight">
-                {PORTAL_TITLE}
-              </div>
-              <div className="text-[10px] font-serif text-gov-maroon font-bold uppercase tracking-wider">
-                Government State Validation & Innovation Authority Console
-              </div>
-            </div>
-          </Link>
+          <SamadhanSetuLogo
+            size="md"
+            variant="admin"
+            subtitle="Government Validation & Innovation Authority Console"
+            to="/admin"
+          />
         </div>
 
         {/* Right: Notifications, Admin Profile, Logout */}

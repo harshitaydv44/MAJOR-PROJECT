@@ -74,7 +74,7 @@ const IndustryDashboardPage = () => {
             <span>Corporate Innovation & CSR Partnership Hub</span>
           </div>
           <h1 className="text-2xl font-bold text-gov-navy">
-            {profile?.name || 'Tata Power Delhi Innovation Hub'}
+            {profile?.name || 'Tata Power Innovation Hub'}
           </h1>
           <p className="text-xs text-gov-text-secondary mt-0.5">
             {profile?.organizationType || 'Industry'} &bull; Sector: <strong>{profile?.industrySector || 'Clean Energy & Utilities'}</strong> &bull; Location: {profile?.location || 'Delhi'}
@@ -149,7 +149,7 @@ const IndustryDashboardPage = () => {
         <div className="space-y-1">
           <div className="font-bold text-amber-900 flex items-center space-x-1.5">
             <Compass className="w-4 h-4 text-amber-700" />
-            <span>Discover High-Impact Delhi Societal Engineering Statements</span>
+            <span>Discover High-Impact Samadhan Setu Engineering Challenges</span>
           </div>
           <p className="text-amber-800 text-[11px]">
             Academically vetted prototypes from DTU, NSUT, and IIIT-Delhi seek corporate co-sponsorship, sensor hardware access, and live ward testing testbeds.

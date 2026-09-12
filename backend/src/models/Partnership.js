@@ -21,21 +21,51 @@ const partnershipSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'University reference is required']
     },
+    student: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    team: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Team'
+    },
+    requestedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User'
+    },
+    requestedRole: {
+      type: String,
+      enum: ['STUDENT', 'INDUSTRY', 'UNIVERSITY', 'ADMIN'],
+      default: 'STUDENT'
+    },
     supportType: {
       type: String,
       enum: [
-        'EXPRESS_INTEREST',
         'MENTORSHIP',
         'FUNDING',
         'TECHNOLOGY',
         'PROTOTYPING',
+        'TESTING',
+        'PILOT',
+        'IMPLEMENTATION',
+        'TECH_TRANSFER',
+        'EXPRESS_INTEREST',
         'PILOT_SUPPORT'
       ],
       required: [true, 'Support type is required']
     },
+    reason: {
+      type: String,
+      trim: true,
+      default: ''
+    },
+    message: {
+      type: String,
+      trim: true,
+      default: ''
+    },
     description: {
       type: String,
-      required: [true, 'Partnership description is required'],
       trim: true
     },
     resourcesOffered: [
@@ -53,9 +83,16 @@ const partnershipSchema = new mongoose.Schema(
       type: Number,
       default: 0
     },
+    assignedMentor: {
+      name: { type: String, trim: true },
+      email: { type: String, trim: true },
+      designation: { type: String, trim: true },
+      phone: { type: String, trim: true }
+    },
     status: {
       type: String,
       enum: [
+        'PENDING',
         'SUBMITTED',
         'UNDER_REVIEW',
         'ACCEPTED',
@@ -63,7 +100,7 @@ const partnershipSchema = new mongoose.Schema(
         'ACTIVE',
         'COMPLETED'
       ],
-      default: 'SUBMITTED'
+      default: 'PENDING'
     },
     reviewNotes: {
       type: String,
@@ -77,5 +114,13 @@ const partnershipSchema = new mongoose.Schema(
     timestamps: true
   }
 );
+
+// Fallback to ensure description is never empty if reason or message provided
+partnershipSchema.pre('validate', function (next) {
+  if (!this.description) {
+    this.description = this.message || this.reason || `${this.supportType} collaboration request`;
+  }
+  next();
+});
 
 module.exports = mongoose.model('Partnership', partnershipSchema);

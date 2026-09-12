@@ -2,6 +2,8 @@ const Team = require('../models/Team');
 const Project = require('../models/Project');
 const Student = require('../models/Student');
 const Faculty = require('../models/Faculty');
+const User = require('../models/User');
+const { dispatchNotification } = require('../services/notificationDispatcher');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 /**
@@ -166,9 +168,331 @@ const deleteTeam = async (req, res, next) => {
   }
 };
 
+/**
+ * Invite a student to the multidisciplinary team
+ * POST /api/teams/:id/invite
+ */
+const inviteMember = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { email, role = 'Research', responsibility = '' } = req.body;
+
+    if (!email) {
+      return errorResponse(res, 'Student email is required to send team invitation', null, 400);
+    }
+
+    const team = await Team.findById(id).populate('members.student');
+    if (!team) {
+      return errorResponse(res, 'Team not found', null, 404);
+    }
+
+    // Permission enforcement: Only Team Lead, University Coordinator, or Admin can invite
+    let isLead = false;
+    if (req.user.role === 'STUDENT') {
+      const student = await Student.findOne({ user: req.user.id });
+      if (student) {
+        isLead = team.members.some(
+          (m) =>
+            m.student &&
+            (m.student._id?.toString() === student._id.toString() || m.student.toString() === student._id.toString()) &&
+            m.role === 'Team Lead'
+        );
+      }
+      if (!isLead && team.members.length > 0) {
+        const firstM = team.members[0];
+        if (student && (firstM.student?._id?.toString() === student._id.toString() || firstM.student?.toString() === student._id.toString())) {
+          isLead = true;
+        }
+      }
+    } else if (req.user.role === 'UNIVERSITY' || req.user.role === 'ADMIN') {
+      isLead = true;
+    }
+
+    if (!isLead) {
+      return errorResponse(res, 'Unauthorized: Only the Team Lead or University Coordinator can invite team members.', null, 403);
+    }
+
+    // Find student in DB by email
+    let studentToInvite = await Student.findOne({ email: email.toLowerCase() });
+    if (!studentToInvite) {
+      const userDoc = await User.findOne({ email: email.toLowerCase(), role: 'STUDENT' });
+      if (userDoc) {
+        studentToInvite = await Student.create({
+          university: team.university,
+          user: userDoc._id,
+          name: userDoc.name,
+          email: userDoc.email,
+          department: userDoc.department || 'Engineering',
+          year: '3rd Year B.Tech',
+          skills: ['Research', 'Prototyping']
+        });
+      } else {
+        return errorResponse(res, `No registered student found with email "${email}". Please verify the student email.`, null, 404);
+      }
+    }
+
+    // Check if already in team
+    const alreadyMember = team.members.some(
+      (m) => m.student && (m.student._id?.toString() === studentToInvite._id.toString() || m.student.toString() === studentToInvite._id.toString())
+    );
+    if (alreadyMember) {
+      return errorResponse(res, 'Student is already a member or has a pending invitation in this team.', null, 400);
+    }
+
+    team.members.push({
+      student: studentToInvite._id,
+      role,
+      responsibility: responsibility.trim(),
+      status: 'INVITED',
+      invitedBy: req.user.id,
+      invitedAt: new Date(),
+      joinedAt: new Date()
+    });
+
+    await team.save();
+
+    // Dispatch notification to invited student
+    if (studentToInvite.user) {
+      await dispatchNotification({
+        recipient: studentToInvite.user,
+        sender: req.user.id,
+        senderName: req.user.name,
+        type: 'TEAM_INVITATION',
+        title: 'Team Invitation Received',
+        message: `You have been invited to join team "${team.name}" as ${role}.`,
+        relatedEntity: 'Team',
+        relatedEntityId: team._id
+      });
+    }
+
+    const populated = await Team.findById(id)
+      .populate('project', 'title challengeId status')
+      .populate('facultyMentor', 'name department specialization')
+      .populate('members.student', 'name email department year skills');
+
+    return successResponse(res, `Invitation sent to ${studentToInvite.name}`, { team: populated }, 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Invited student accepts or declines invitation
+ * POST /api/teams/:id/respond-invite
+ */
+const respondInvite = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { action } = req.body; // 'ACCEPT' or 'REJECT'
+
+    if (!['ACCEPT', 'REJECT'].includes(action)) {
+      return errorResponse(res, 'Action must be ACCEPT or REJECT', null, 400);
+    }
+
+    const team = await Team.findById(id).populate('members.student');
+    if (!team) {
+      return errorResponse(res, 'Team not found', null, 404);
+    }
+
+    let student = await Student.findOne({ user: req.user.id });
+    if (!student) {
+      student = await Student.findOne({ email: req.user.email?.toLowerCase() });
+    }
+    if (!student) {
+      return errorResponse(res, 'Student profile not found for authenticated user', null, 404);
+    }
+
+    const memberEntry = team.members.find(
+      (m) =>
+        m.student &&
+        (m.student._id?.toString() === student._id.toString() || m.student.toString() === student._id.toString())
+    );
+
+    if (!memberEntry) {
+      return errorResponse(res, 'No invitation found for this student on this team', null, 404);
+    }
+
+    if (action === 'ACCEPT') {
+      memberEntry.status = 'ACCEPTED';
+      memberEntry.joinedAt = new Date();
+      student.assignedTeam = team._id;
+      await student.save();
+      await team.save();
+
+      // Dispatch notification to Inviter or Team Lead
+      if (memberEntry.invitedBy) {
+        await dispatchNotification({
+          recipient: memberEntry.invitedBy,
+          sender: req.user.id,
+          senderName: student.name,
+          type: 'TEAM_INVITATION_ACCEPTED',
+          title: 'Team Invitation Accepted',
+          message: `${student.name} accepted your invitation to join team "${team.name}" as ${memberEntry.role}.`,
+          relatedEntity: 'Team',
+          relatedEntityId: team._id
+        });
+      }
+
+      return successResponse(res, `You have successfully joined team "${team.name}"!`, { team });
+    } else {
+      memberEntry.status = 'REJECTED';
+      await team.save();
+
+      if (memberEntry.invitedBy) {
+        await dispatchNotification({
+          recipient: memberEntry.invitedBy,
+          sender: req.user.id,
+          senderName: student.name,
+          type: 'GENERAL',
+          title: 'Team Invitation Declined',
+          message: `${student.name} declined the invitation to join team "${team.name}".`,
+          relatedEntity: 'Team',
+          relatedEntityId: team._id
+        });
+      }
+
+      return successResponse(res, `You have declined the invitation to join team "${team.name}".`, { team });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update member role and responsibility
+ * PUT /api/teams/:id/members/:memberId
+ */
+const updateMember = async (req, res, next) => {
+  try {
+    const { id, memberId } = req.params;
+    const { role, responsibility } = req.body;
+
+    const team = await Team.findById(id).populate('members.student');
+    if (!team) {
+      return errorResponse(res, 'Team not found', null, 404);
+    }
+
+    // Permission: Team Lead, University, Admin, or member editing own responsibility
+    let isLead = false;
+    let isSelf = false;
+    if (req.user.role === 'STUDENT') {
+      const student = await Student.findOne({ user: req.user.id }) || await Student.findOne({ email: req.user.email?.toLowerCase() });
+      if (student) {
+        isLead = team.members.some(
+          (m) =>
+            m.student &&
+            (m.student._id?.toString() === student._id.toString() || m.student.toString() === student._id.toString()) &&
+            m.role === 'Team Lead'
+        );
+        const targetMember = team.members.id(memberId);
+        if (targetMember && (targetMember.student?._id?.toString() === student._id.toString() || targetMember.student?.toString() === student._id.toString())) {
+          isSelf = true;
+        }
+      }
+    } else if (req.user.role === 'UNIVERSITY' || req.user.role === 'ADMIN') {
+      isLead = true;
+    }
+
+    if (!isLead && !isSelf) {
+      return errorResponse(res, 'Unauthorized: Only the Team Lead, University Lead, or member themselves can update team member details.', null, 403);
+    }
+
+    const member = team.members.id(memberId);
+    if (!member) {
+      return errorResponse(res, 'Member not found in team', null, 404);
+    }
+
+    // Non-lead members can only update their own responsibility, not their role
+    if (isSelf && !isLead && role && role !== member.role) {
+      return errorResponse(res, 'Only the Team Lead can modify team member roles.', null, 403);
+    }
+
+    if (role && isLead) member.role = role;
+    if (responsibility !== undefined) member.responsibility = responsibility.trim();
+
+    await team.save();
+
+    const populated = await Team.findById(id)
+      .populate('project', 'title challengeId status')
+      .populate('facultyMentor', 'name department specialization')
+      .populate('members.student', 'name email department year skills');
+
+    return successResponse(res, 'Team member details updated successfully', { team: populated });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Remove a member from the team
+ * DELETE /api/teams/:id/members/:memberId
+ */
+const removeMember = async (req, res, next) => {
+  try {
+    const { id, memberId } = req.params;
+
+    const team = await Team.findById(id).populate('members.student');
+    if (!team) {
+      return errorResponse(res, 'Team not found', null, 404);
+    }
+
+    let isLead = false;
+    let isSelf = false;
+    let student = null;
+    if (req.user.role === 'STUDENT') {
+      student = await Student.findOne({ user: req.user.id }) || await Student.findOne({ email: req.user.email?.toLowerCase() });
+      if (student) {
+        isLead = team.members.some(
+          (m) =>
+            m.student &&
+            (m.student._id?.toString() === student._id.toString() || m.student.toString() === student._id.toString()) &&
+            m.role === 'Team Lead'
+        );
+        const targetMember = team.members.id(memberId);
+        if (targetMember && (targetMember.student?._id?.toString() === student._id.toString() || targetMember.student?.toString() === student._id.toString())) {
+          isSelf = true;
+        }
+      }
+    } else if (req.user.role === 'UNIVERSITY' || req.user.role === 'ADMIN') {
+      isLead = true;
+    }
+
+    if (!isLead && !isSelf) {
+      return errorResponse(res, 'Unauthorized: Only the Team Lead, University Lead, or the member themselves can remove team members.', null, 403);
+    }
+
+    const targetMember = team.members.id(memberId);
+    if (!targetMember) {
+      return errorResponse(res, 'Member not found in team', null, 404);
+    }
+
+    const removedStudentId = targetMember.student?._id || targetMember.student;
+
+    team.members.pull(memberId);
+    await team.save();
+
+    if (removedStudentId) {
+      await Student.findByIdAndUpdate(removedStudentId, { $unset: { assignedTeam: 1 } });
+    }
+
+    const populated = await Team.findById(id)
+      .populate('project', 'title challengeId status')
+      .populate('facultyMentor', 'name department specialization')
+      .populate('members.student', 'name email department year skills');
+
+    return successResponse(res, 'Team member removed successfully', { team: populated });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getTeams,
   createTeam,
   updateTeam,
-  deleteTeam
+  deleteTeam,
+  inviteMember,
+  respondInvite,
+  updateMember,
+  removeMember
 };
