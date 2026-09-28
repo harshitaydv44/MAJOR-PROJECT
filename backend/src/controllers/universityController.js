@@ -53,36 +53,14 @@ const getProfile = async (req, res, next) => {
       university = await University.create({
         user: userId,
         name: user.name || 'Delhi Higher Education Research Partner',
-        campus: 'Main Technical Campus, Delhi',
+        campus: '',
         district: user.district || 'North West Delhi',
-        departments: [
-          'Department of Computer Science & Engineering',
-          'Department of Environmental Engineering',
-          'Department of Electrical & Electronics',
-          'Department of Civil & Urban Planning'
-        ],
-        researchAreas: [
-          'Municipal IoT Telemetry & Environmental Sensors',
-          'Autonomous Water Filtration & Leachate Treatment',
-          'Clean Energy & Micro-grid Solar Harvesting',
-          'Accessibility Technologies for Transit Commuters'
-        ],
-        expertise: [
-          'AI/ML',
-          'IoT',
-          'Environmental Engineering',
-          'Water Management',
-          'Renewable Energy',
-          'Accessibility'
-        ],
-        labsAndFacilities: [
-          'Centre for Environmental Biotechnology & Biogas Lab',
-          'Autonomous Smart Sensing & IoT Systems Lab',
-          'Solar Photovoltaic Testing Facility',
-          'Rapid Prototyping & Fabrication Workshop (FabLab)'
-        ],
-        innovationCentre: 'Delhi Technological University Innovation Council (DTU-IC)',
-        incubationFacilities: 'TBI Delhi Innovation Incubation Centre (DST Supported)',
+        departments: [],
+        researchAreas: [],
+        expertise: [],
+        labsAndFacilities: [],
+        innovationCentre: '',
+        incubationFacilities: '',
         facultySpecializations: []
       });
     }
