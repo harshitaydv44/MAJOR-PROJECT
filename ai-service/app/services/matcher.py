@@ -40,6 +40,7 @@ def match_universities(challenge_data: Dict[str, Any], universities: List[Dict[s
 
         reasons = []
         score = 0.50  # Base institutional baseline score
+        matched_signals = 0
 
         # 1. Category & Domain Alignment (up to +0.20)
         domain_tokens = set()
@@ -50,10 +51,12 @@ def match_universities(challenge_data: Dict[str, Any], universities: List[Dict[s
         if ch_cat in ' '.join(expertise + research_areas) or ch_cat in domain_tokens:
             score += 0.15
             reasons.append(f"University has active academic specialization in {challenge_data.get('category')}.")
+            matched_signals += 1
         elif domain_overlap:
             score += 0.10
             sample_overlap = list(domain_overlap)[:3]
             reasons.append(f"Domain alignment in {', '.join(sample_overlap).title()}.")
+            matched_signals += 1
 
         # 2. Technology & Research Overlap (up to +0.15)
         all_matched_skills = []
@@ -75,9 +78,11 @@ def match_universities(challenge_data: Dict[str, Any], universities: List[Dict[s
             if len(unique_skills) > 2:
                 joined_skills += f" and {unique_skills[2]}"
             reasons.append(f"Strong match because the university has expertise in {joined_skills}.")
+            matched_signals += 1
         elif unique_skills:
             score += 0.10
             reasons.append(f"Strong match because the university has expertise in {unique_skills[0]}.")
+            matched_signals += 1
         elif expertise:
             sample_exp = [e.title() for e in expertise[:3]]
             reasons.append(f"Core departmental expertise covers {', '.join(sample_exp)}.")
@@ -95,6 +100,7 @@ def match_universities(challenge_data: Dict[str, Any], universities: List[Dict[s
         if matched_faculty:
             score += 0.10
             reasons.append(f"Dedicated faculty mentorship available: {matched_faculty[0]}.")
+            matched_signals += 1
         elif faculty:
             score += 0.03
 
@@ -117,6 +123,10 @@ def match_universities(challenge_data: Dict[str, Any], universities: List[Dict[s
         if matched_prev:
             score += 0.08
             reasons.append(f"Demonstrated institutional track record with prior municipal projects in {matched_prev[0]}.")
+            matched_signals += 1
+
+        if matched_signals == 0:
+            continue
 
         # Clamp score between 0.60 and 0.96
         final_score = min(0.96, max(0.60, round(score, 2)))
