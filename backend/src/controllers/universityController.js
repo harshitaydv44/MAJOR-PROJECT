@@ -83,27 +83,22 @@ const getProfile = async (req, res, next) => {
         ],
         innovationCentre: 'Delhi Technological University Innovation Council (DTU-IC)',
         incubationFacilities: 'TBI Delhi Innovation Incubation Centre (DST Supported)',
-        facultySpecializations: [
-          {
-            facultyName: 'Prof. S. K. Sharma',
-            department: 'Environmental Engineering',
-            specialization: 'Biomethanation & Anaerobic Digestion',
-            email: 'sksharma@dtu.ac.in'
-          },
-          {
-            facultyName: 'Dr. Radhika Sen',
-            department: 'Computer Science',
-            specialization: 'Computer Vision & Commuter Telemetry',
-            email: 'radhika.sen@dtu.ac.in'
-          }
-        ],
-        studentTeamsCount: 14,
-        facultyMentorsCount: 8
+        facultySpecializations: []
       });
     }
 
+    // Phase 1 Dynamic Counts
+    const [studentTeamsCount, facultyMentorsCount] = await Promise.all([
+      Team.countDocuments({ university: userId }),
+      Faculty.countDocuments({ university: userId, isActive: { $ne: false } })
+    ]);
+
+    const universityData = university.toObject();
+    universityData.studentTeamsCount = studentTeamsCount;
+    universityData.facultyMentorsCount = facultyMentorsCount;
+
     return successResponse(res, 'University profile retrieved successfully', {
-      university,
+      university: universityData,
       availableExpertiseTags: DEFAULT_EXPERTISE_TAGS
     });
   } catch (error) {
@@ -128,9 +123,7 @@ const updateProfile = async (req, res, next) => {
       labsAndFacilities,
       innovationCentre,
       incubationFacilities,
-      facultySpecializations,
-      studentTeamsCount,
-      facultyMentorsCount
+      facultySpecializations
     } = req.body;
 
     let university = await University.findOne({ user: userId });
@@ -148,8 +141,6 @@ const updateProfile = async (req, res, next) => {
     if (innovationCentre) university.innovationCentre = innovationCentre.trim();
     if (incubationFacilities) university.incubationFacilities = incubationFacilities.trim();
     if (Array.isArray(facultySpecializations)) university.facultySpecializations = facultySpecializations;
-    if (studentTeamsCount !== undefined) university.studentTeamsCount = Number(studentTeamsCount);
-    if (facultyMentorsCount !== undefined) university.facultyMentorsCount = Number(facultyMentorsCount);
 
     await university.save();
 
